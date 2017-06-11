@@ -1,0 +1,114 @@
+#include "network.h"
+#include "ncb.h"
+
+#include <assert.h>
+
+/*++
+	重要:
+
+	无法处理的异常:
+	假如对端有一个socket成功accept本地connect上去的socket后， 不调用recv收取数据，理论上，本地发送缓冲区满后溢出， 或者[TCP WINDOW]满后， 本地调用[WSASend]应该得到一个失败
+	但是事实证明不会， 操作系统会无休止的接收WSASend的异步请求， 虽然IRP无法被完成， 但是允许无限堆积， 最终导致系统崩溃
+	更加严重的后果是， 因为[TCP WINDOW]已经为0， 即使此时对端断开链接， 本地也无法收到 fin ack 的应答，  不会得到IOCP对WSASend调用者的通知， 这会导致程序很快的死亡
+	为了避免这个问题， 在没有更标准的方法解决前， 只能限制每个链接的窗口数， 在一定层度上保证安全性
+
+	实验证明， 即使发生了上述异常情况， 本地closesocket的调用， 可以恢复异常， 并得到一个STATUS_LOCAL_DISCONNECT(0xC000013B)的结果， 因此， 只要保证程序不在发生异常阶段崩溃
+	就好有挽回余地
+
+	由于任何原因导致的PENDING个数高于 NCB_MAXIMUM_TCP_SENDER_IRP_PEDNING_COUNT, tcp_write 过程调用将会直接返回失败
+
+	(2016-05-26)
+	对 TCP 发送缓冲区作长度限制，在达到指定长度之前，均可以将缓冲区投递给操作系统, 详见 ncb_t::tcp_usable_sender_cache_ 的使用
+	--*/
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define NCB_UDP_ROOT_IDX							(0)
+#define NCB_TCP_ROOT_IDX							(1)
+#define NCB_MAXIMUM_PROTOCOL_ROOT					(3)
+
+#define NCB_UDP_HASHMAP_SIZE						(59)
+#define NCB_TCP_HASHMAP_SIZE						(599)
+
+void ncb_callback( ncb_t * ncb, const nis_event_t *c_evet, const void * c_data )
+{
+	if ( ncb ) {
+		if ( kProto_UDP == ncb->proto_type_ && ncb->udp_callback_) {
+			ncb->udp_callback_( c_evet, c_data );
+		}
+
+		if ( kProto_TCP == ncb->proto_type_ && ncb->tcp_callback_) {
+			ncb->tcp_callback_( c_evet, c_data );
+		}
+	}
+}
+
+void ncb_init( ncb_t * ncb, enum proto_type_t proto_type )
+{
+	if ( ncb ) {
+		memset( ncb, 0, sizeof( ncb_t ) );
+		ncb->sock_ = INVALID_SOCKET;
+		ncb->proto_type_ = proto_type;
+		InitializeCriticalSection( &ncb->tcp_lst_lock_ );
+		INIT_LIST_HEAD( &ncb->tcp_waitting_list_head_ );
+	}
+}
+
+int ncb_mark_lb( ncb_t *ncb, int cb, int current_size, void * source )
+{
+	if ( !ncb || ( cb < current_size ) ) return -1;
+
+	ncb->lb_length_ = cb;
+	ncb->lb_data_ = ( char * ) malloc( ncb->lb_length_ );
+	if ( !ncb->lb_data_ ) {
+		ncb_report_debug_information( ncb, "fail to allocate memory for ncb->lb_data_, request size=%u", cb );
+		return -1;
+	}
+	memcpy( ncb->lb_data_, source, current_size );
+	ncb->lb_cpy_offset_ = current_size;
+	return 0;
+}
+
+void ncb_unmark_lb( ncb_t *ncb )
+{
+	if ( ncb ) {
+		if ( ncb->lb_data_) {
+			assert( ncb->lb_length_ > 0 );
+			if ( ncb->lb_length_ > 0 ) {
+				free( ncb->lb_data_ );
+				ncb->lb_data_ = NULL;
+			}
+			ncb->lb_cpy_offset_ = 0;
+		}
+		
+		ncb->lb_length_ = 0;
+	}
+}
+
+void ncb_report_debug_information(ncb_t *ncb, const char *fmt,...) {
+    udp_data_t c_data;
+    nis_event_t c_event;
+    char logstr[128];
+    va_list ap;
+    int retval;
+    
+    if (!ncb || !fmt) {
+        return;
+    }
+
+    c_event.Ln.Udp.Link = ncb->h_;
+    c_event.Event = EVT_DEBUG_LOG;
+   
+    va_start(ap, fmt);
+    retval = vsprintf_s(logstr, cchof(logstr), fmt, ap);
+    va_end(ap);
+    
+    if (retval <= 0) {
+        return;
+    }
+    logstr[retval] = 0;
+    
+    c_data.e.DebugLog.logstr = &logstr[0];
+    if (ncb->tcp_callback_) {
+        ncb->tcp_callback_(&c_event, &c_data);
+    }
+}

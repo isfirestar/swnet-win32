@@ -1,0 +1,39 @@
+LIBRARY      "nshost"
+
+EXPORTS
+    ; Explicit exports can go here
+
+	tcp_settst
+	tcp_gettst
+	tcp_init
+	tcp_uninit
+	tcp_create
+	tcp_destroy
+	tcp_listen
+	tcp_connect
+	tcp_write
+	tcp_getaddr
+	tcp_setopt
+	tcp_getopt
+
+	
+	udp_init
+	udp_uninit
+	udp_create
+	udp_destroy
+	udp_write
+	udp_getaddr
+	udp_setopt
+	udp_getopt
+	udp_initialize_grp
+	udp_raise_grp
+	udp_detach_grp
+	udp_write_grp
+	udp_release_grp
+
+	nis_setctx
+	nis_getctx
+	nis_refctx
+	nis_ctxsize
+	nis_getver
+	nis_gethost

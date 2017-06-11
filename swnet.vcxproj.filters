@@ -1,0 +1,130 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="iocp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mxx.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ncb.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="network.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="packet.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tcp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="udp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="os.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="packet.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="network.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ncb.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="iocp.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="os.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\avltree.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\base64.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\clist.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\compiler.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\crc32.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\des.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\logger.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\md5.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\nis.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\nisdef.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\object.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_atomic.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_ifos.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_naos.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_string.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_thread.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_time.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_types.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_wait.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{e9175f53-937c-4e33-8219-e288fba0caad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Head Files">
+      <UniqueIdentifier>{12651b28-2e80-4568-9b42-8e56d040615b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{a16707b6-a684-4b4b-acaa-1992ace8f714}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="icom">
+      <UniqueIdentifier>{a86518f7-d731-46e5-adfb-2001dcb9d56c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="swnet.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="nshost.def">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>

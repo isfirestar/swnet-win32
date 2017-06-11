@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <RemoteDebuggerCommand>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)\test.exe</RemoteDebuggerCommand>
+    <RemoteDebuggerCommandArguments>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)\test.exe</RemoteDebuggerCommandArguments>
+    <RemoteDebuggerWorkingDirectory>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)\</RemoteDebuggerWorkingDirectory>
+    <RemoteDebuggerServerName>192.168.164.85</RemoteDebuggerServerName>
+    <RemoteDebuggerConnection>RemoteWithoutAuthentication</RemoteDebuggerConnection>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommand>D:\work\git\swnet-test\win32\bin\Debug\tcp-server.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)\test.exe</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LocalDebuggerCommand>D:\work\git\swnet-test\win32\bin\Debug\tcp-server.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>
+    </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <RemoteDebuggerCommand>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommand>
+    <RemoteDebuggerCommandArguments>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommandArguments>
+    <RemoteDebuggerWorkingDirectory>C:\Users\neo-anderson\Desktop\swnet\</RemoteDebuggerWorkingDirectory>
+    <RemoteDebuggerServerName>10.10.100.196</RemoteDebuggerServerName>
+    <RemoteDebuggerConnection>RemoteWithoutAuthentication</RemoteDebuggerConnection>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LocalDebuggerCommand>
+    </LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>
+    </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>
+    </LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LocalDebuggerCommand>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)\test.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)\test.exe</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>$(SolutionDir)bin\$(Configuration)\$(PlatformTarget)</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+</Project>
