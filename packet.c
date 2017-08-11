@@ -49,8 +49,8 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 		packet->page_style_ = page_style;
 		packet->flag_ = 0;
 		packet->from_length_ = sizeof( struct sockaddr_in );
-		packet->h_ = h;
-		packet->accepted_ = -1;
+		packet->link = h;
+		packet->accepted_link = -1;
 		if ( kProto_TCP == proto_type ) {
 			INIT_LIST_HEAD( &packet->pkt_lst_entry_ );
 		} else if ( kProto_UDP == proto_type ) {
@@ -109,38 +109,36 @@ int asio_tcp_accept( packet_t * packet )
 	ncb_t * ncb_listen;
 	ncb_t * ncb_income;
 	static GUID GUID_ACCEPTEX = WSAID_ACCEPTEX;
-	static LPFN_ACCEPTEX WSAAcceptEx = NULL;
+	LPFN_ACCEPTEX WSAAcceptEx = NULL;
 	uint32_t bytes_return = 0;
 	int retval;
 
 	if ( !packet ) return -1;
 
-	ncb_listen = objrefr( packet->h_ );
+	ncb_listen = objrefr(packet->link);
 	if ( !ncb_listen ) return -1;
 
-	if ( !WSAAcceptEx ) {
-		status = ( NTSTATUS ) WSAIoctl( ncb_listen->sock_, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_ACCEPTEX, sizeof( GUID_ACCEPTEX ),
-			&WSAAcceptEx, sizeof( WSAAcceptEx ), &bytes_return, NULL, NULL );
-		if ( !NT_SUCCESS( status ) ) {
-			ncb_report_debug_information(ncb_listen, "syscall WSAIoctl for WSAID_ACCEPTEX failed,NTSTATUS=0x%08X", status );
-			objdefr( ncb_listen->h_ );
-			return -1;
-		}
+	status = (NTSTATUS)WSAIoctl(ncb_listen->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_ACCEPTEX, sizeof(GUID_ACCEPTEX),
+		&WSAAcceptEx, sizeof(WSAAcceptEx), &bytes_return, NULL, NULL);
+	if (!NT_SUCCESS(status)) {
+		ncb_report_debug_information(ncb_listen, "syscall WSAIoctl for WSAID_ACCEPTEX failed,NTSTATUS=0x%08X", status);
+		objdefr(ncb_listen->link);
+		return -1;
 	}
 
 	retval = 0;
-	ncb_income = objrefr( packet->accepted_ );
+	ncb_income = objrefr(packet->accepted_link);
 	if ( ncb_income ) {
-		if ( !WSAAcceptEx( ncb_listen->sock_, ncb_income->sock_, packet->irp_, 0,
+		if ( !WSAAcceptEx( ncb_listen->sockfd, ncb_income->sockfd, packet->irp_, 0,
 			sizeof( struct sockaddr_in ) + 16, sizeof( struct sockaddr_in ) + 16, &packet->size_for_translation_, &packet->overlapped_ ) ) {
 			if ( ERROR_IO_PENDING != WSAGetLastError() ) {
 				ncb_report_debug_information(ncb_listen, "syscall WSAAcceptEx failed,error code=%u", WSAGetLastError() );
 				retval = -1;
 			}
 		}
-		objdefr( ncb_income->h_ );
+		objdefr( ncb_income->link );
 	}
-	objdefr( ncb_listen->h_ );
+	objdefr( ncb_listen->link );
 	return retval;
 }
 
@@ -152,13 +150,13 @@ int asio_tcp_send( packet_t *packet )
 
 	if ( !packet ) return -1;
 
-	ncb = objrefr( packet->h_ );
+	ncb = objrefr(packet->link);
 	if ( !ncb ) return -1;
 
 	wsb[0].len = packet->size_for_req_;
 	wsb[0].buf = ( CHAR * ) packet->irp_;
 
-	retval = WSASend( ncb->sock_, wsb, 1, &packet->size_completion_,
+	retval = WSASend( ncb->sockfd, wsb, 1, &packet->size_completion_,
 #if USES_LOCAL_ROUTE_TABLE
 		0,
 #else
@@ -173,7 +171,7 @@ int asio_tcp_send( packet_t *packet )
 		}
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -185,13 +183,13 @@ int asio_tcp_recv( packet_t * packet )
 
 	if ( !packet ) return -1;
 
-	ncb = objrefr( packet->h_ );
+	ncb = objrefr(packet->link);
 	if ( !ncb ) return -1;
 
 	wsb[0].len = packet->size_for_req_;
 	wsb[0].buf = ( CHAR * ) packet->irp_;
 
-	retval = WSARecv( ncb->sock_, wsb, 1, &packet->size_completion_, &packet->flag_, &packet->overlapped_, NULL );
+	retval = WSARecv( ncb->sockfd, wsb, 1, &packet->size_completion_, &packet->flag_, &packet->overlapped_, NULL );
 	if ( retval < 0 ) {
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
 			retval = 0;
@@ -200,7 +198,46 @@ int asio_tcp_recv( packet_t * packet )
 		}
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
+	return retval;
+}
+
+int asio_tcp_connect(packet_t *packet){
+	NTSTATUS status;
+	static GUID GUID_CONNECTEX = WSAID_CONNECTEX;
+	LPFN_CONNECTEX WSAConnectEx = NULL;
+	uint32_t bytes_return = 0;
+	ncb_t *ncb;
+	int retval;
+
+	if (!packet) return -1;
+
+	ncb = objrefr(packet->link);
+	if (!ncb) return -1;
+
+	retval = -1;
+	do {
+		status = (NTSTATUS)WSAIoctl(ncb->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_CONNECTEX, sizeof(GUID_CONNECTEX),
+			&WSAConnectEx, sizeof(WSAConnectEx), &bytes_return, NULL, NULL);
+		if (!NT_SUCCESS(status)) {
+			ncb_report_debug_information(ncb, "syscall WSAIoctl for WSAID_CONNECTEX failed,NTSTATUS=0x%08X", status);
+			break;
+		}
+
+		if (!WSAConnectEx(ncb->sockfd, (const struct sockaddr *)&packet->r_addr_,
+			sizeof(struct sockaddr), NULL, 0, NULL, &packet->overlapped_))
+		{
+			uint32_t errcode = WSAGetLastError();
+			if (ERROR_IO_PENDING != errcode) {
+				ncb_report_debug_information(ncb, "syscall ConnectEx failed,errcode=%u", WSAGetLastError());
+				break;
+			}
+		}
+
+		retval = 0;
+	} while ( 0 );
+
+	objdefr(ncb->link);
 	return retval;
 }
 
@@ -213,13 +250,13 @@ int asio_udp_recv( packet_t * packet )
 
 	if ( !packet ) return -1;
 
-	ncb = objrefr( packet->h_ );
+	ncb = objrefr(packet->link);
 	if ( !ncb ) return -1;
 
 	wsb[0].len = packet->size_for_req_;
 	wsb[0].buf = ( CHAR * ) packet->irp_;
 
-	retval = WSARecvFrom( ncb->sock_, wsb, 1, &packet->size_completion_, &packet->flag_,
+	retval = WSARecvFrom(ncb->sockfd, wsb, 1, &packet->size_completion_, &packet->flag_,
 		( struct sockaddr * )&packet->r_addr_, &packet->from_length_, &packet->overlapped_, NULL );
 	if ( retval < 0 ) {
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
@@ -229,7 +266,7 @@ int asio_udp_recv( packet_t * packet )
 		}
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -243,13 +280,13 @@ int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port )
 		return -1;
 	}
 
-	ncb = objrefr( packet->h_ );
+	ncb = objrefr(packet->link);
 	if ( !ncb ) {
 		return -1;
 	}
 
 	if ( inet_pton( AF_INET, r_ipstr, &packet->r_addr_.sin_addr ) <= 0 ) {
-		objdefr( packet->h_ );
+		objdefr(packet->link);
 		return -1;
 	}
 	packet->r_addr_.sin_family = AF_INET;
@@ -258,14 +295,14 @@ int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port )
 	wsb[0].len = packet->size_for_req_;
 	wsb[0].buf = ( CHAR * ) packet->irp_;
 
-	retval = WSASendTo( ncb->sock_, wsb, 1, &packet->size_completion_, 0,//MSG_DONTROUTE,
+	retval = WSASendTo(ncb->sockfd, wsb, 1, &packet->size_completion_, 0,//MSG_DONTROUTE,
 		( const struct sockaddr * )&packet->r_addr_, sizeof( struct sockaddr ), NULL, NULL );
 	if ( retval < 0 ) {
 		ncb_report_debug_information(ncb, "syscall WSASendTo failed,error code=%u", WSAGetLastError() );
 	}
 
 	free_packet( packet );
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -284,7 +321,7 @@ int syio_v_disconnect( ncb_t * ncb )
 	memset( &addr, 0, sizeof( addr ) );
 
 	// 面向无连接的0地址结构连接操作， 即为反向设置伪连接， 反向设置伪连接后， UDP对象可以继续处理源连接以外的地址所得的包
-	retval = WSAConnect( ncb->sock_, ( const struct sockaddr * )&addr, sizeof( addr ), NULL, NULL, NULL, NULL );
+	retval = WSAConnect(ncb->sockfd, (const struct sockaddr *)&addr, sizeof(addr), NULL, NULL, NULL, NULL);
 	if ( retval < 0 ) {
 		ncb_report_debug_information(ncb, "syscall WSAConnect failed,error code=%u", WSAGetLastError() );
 	}
@@ -295,7 +332,7 @@ int syio_v_connect( ncb_t * ncb, const struct sockaddr_in *r_addr )
 {
 	int retval;
 
-	retval = WSAConnect( ncb->sock_, ( const struct sockaddr * )r_addr, sizeof( struct sockaddr_in ), NULL, NULL, NULL, NULL );
+	retval = WSAConnect(ncb->sockfd, (const struct sockaddr *)r_addr, sizeof(struct sockaddr_in), NULL, NULL, NULL, NULL);
 	if ( retval < 0 ) {
 		ncb_report_debug_information(ncb, "syscall WSAConnect failed,error code=%u", WSAGetLastError() );
 		return -1;
@@ -305,7 +342,7 @@ int syio_v_connect( ncb_t * ncb, const struct sockaddr_in *r_addr )
 	if ( 0 == ncb->l_addr_.sin_port || 0 == ncb->l_addr_.sin_addr.S_un.S_addr ) {
 		struct sockaddr_in s_name;
 		int name_length = sizeof( s_name );
-		if ( getsockname( ncb->sock_, ( struct sockaddr * )&s_name, &name_length ) >= 0 ) {
+		if (getsockname(ncb->sockfd, (struct sockaddr *)&s_name, &name_length) >= 0) {
 			ncb->l_addr_.sin_port = s_name.sin_port;
 			ncb->l_addr_.sin_addr.S_un.S_addr = htonl( s_name.sin_addr.S_un.S_addr );/*为了保持兼容性， 这里转换地址为大端*/
 		}
@@ -323,14 +360,14 @@ int syio_grp_send( packet_t * packet )
 	ncb_t *ncb;
 	int retval = -1;
 
-	ncb = objrefr( packet->h_ );
+	ncb = objrefr(packet->link);
 	if ( !ncb ) {
 		return -1;
 	}
 
 	do {
 		if ( !WSATransmitPackets ) {
-			status = WSAIoctl( ncb->sock_, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_TRANSMIT_PACKETS, sizeof( GUID_TRANSMIT_PACKETS ), &WSATransmitPackets,
+			status = WSAIoctl(ncb->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_TRANSMIT_PACKETS, sizeof(GUID_TRANSMIT_PACKETS), &WSATransmitPackets,
 				sizeof( WSATransmitPackets ), &bytes_return, NULL, NULL );
 			if ( !NT_SUCCESS( status ) ) {
 				ncb_report_debug_information(ncb, "syscall WSAIoctl for GUID_TRANSMIT_PACKETS failed,NTSTATUS=0x%08X", status );
@@ -338,7 +375,7 @@ int syio_grp_send( packet_t * packet )
 			}
 		}
 
-		if ( !WSATransmitPackets( ncb->sock_, packet->grp_packets_, packet->grp_packets_cnt_, MAXDWORD, NULL, 0 ) ) {
+		if (!WSATransmitPackets(ncb->sockfd, packet->grp_packets_, packet->grp_packets_cnt_, MAXDWORD, NULL, 0)) {
 			ncb_report_debug_information( ncb, "syscall WSATransmitPackets failed,error code=%u", WSAGetLastError() );
 			break;
 		}
@@ -346,6 +383,6 @@ int syio_grp_send( packet_t * packet )
 		retval = 0;
 	} while ( FALSE );
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }

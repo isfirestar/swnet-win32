@@ -166,8 +166,10 @@ int so_bind( SOCKET *s, uint32_t ip, uint16_t port )
 void so_close( SOCKET *s )
 {
 	if ( s ) {
-		shutdown( *s, SD_BOTH );
-		closesocket( *s );
-		*s = INVALID_SOCKET;
+		if ( *s != INVALID_SOCKET ) {
+			shutdown( *s, SD_BOTH );
+			closesocket( *s );
+			*s = INVALID_SOCKET;
+		}
 	}
 }

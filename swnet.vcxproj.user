@@ -12,10 +12,9 @@
     <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommand>D:\work\git\swnet-test\win32\bin\Debug\tcp-server.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>
-    </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>D:\escape\win32\bin\escape.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>-CH10.10.100.90</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\escape\win32\bin</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <RemoteDebuggerCommand>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommand>
     <RemoteDebuggerCommandArguments>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommandArguments>

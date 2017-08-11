@@ -46,7 +46,7 @@ void ncb_init( ncb_t * ncb, enum proto_type_t proto_type )
 {
 	if ( ncb ) {
 		memset( ncb, 0, sizeof( ncb_t ) );
-		ncb->sock_ = INVALID_SOCKET;
+		ncb->sockfd = INVALID_SOCKET;
 		ncb->proto_type_ = proto_type;
 		InitializeCriticalSection( &ncb->tcp_lst_lock_ );
 		INIT_LIST_HEAD( &ncb->tcp_waitting_list_head_ );
@@ -95,7 +95,7 @@ void ncb_report_debug_information(ncb_t *ncb, const char *fmt,...) {
         return;
     }
 
-    c_event.Ln.Udp.Link = ncb->h_;
+    c_event.Ln.Udp.Link = ncb->sockfd;
     c_event.Event = EVT_DEBUG_LOG;
    
     va_start(ap, fmt);
@@ -111,4 +111,119 @@ void ncb_report_debug_information(ncb_t *ncb, const char *fmt,...) {
     if (ncb->tcp_callback_) {
         ncb->tcp_callback_(&c_event, &c_data);
     }
+}
+
+int ncb_set_rcvtimeo(ncb_t *ncb, struct timeval *timeo){
+    if (ncb && timeo > 0){
+        return setsockopt(ncb->sockfd, SOL_SOCKET, SO_RCVTIMEO, (const void *)timeo, sizeof(struct timeval));
+    }
+    return -EINVAL;
+}
+
+int ncb_get_rcvtimeo(ncb_t *ncb){
+    if (ncb){
+         socklen_t optlen =sizeof(ncb->rcvtimeo);
+        return getsockopt(ncb->sockfd, SOL_SOCKET, SO_RCVTIMEO, (void *__restrict)&ncb->rcvtimeo, &optlen);
+    }
+    return -EINVAL;
+}
+
+int ncb_set_sndtimeo(ncb_t *ncb, struct timeval *timeo){
+    if (ncb && timeo > 0){
+        return setsockopt(ncb->sockfd, SOL_SOCKET, SO_SNDTIMEO, (const void *)timeo, sizeof(struct timeval));
+    }
+    return -EINVAL;
+}
+
+int ncb_get_sndtimeo(ncb_t *ncb){
+    if (ncb){
+        socklen_t optlen =sizeof(ncb->sndtimeo);
+        return getsockopt(ncb->sockfd, SOL_SOCKET, SO_SNDTIMEO, (void *__restrict)&ncb->sndtimeo, &optlen);
+    }
+    return -EINVAL;
+}
+
+int ncb_set_iptos(ncb_t *ncb, int tos){
+    unsigned char type_of_service = (unsigned char )tos;
+    if (ncb && type_of_service){
+        return setsockopt(ncb->sockfd, IPPROTO_IP, IP_TOS, (const void *)&type_of_service, sizeof(type_of_service));
+    }
+    return -EINVAL;
+}
+
+int ncb_get_iptos(ncb_t *ncb){
+    if (ncb){
+        socklen_t optlen =sizeof(ncb->iptos);
+        return getsockopt(ncb->sockfd, IPPROTO_IP, IP_TOS, (void *__restrict)&ncb->iptos, &optlen);
+    }
+    return -EINVAL;
+}
+
+int ncb_set_window_size(ncb_t *ncb, int dir, int size){
+    if (ncb){
+        return setsockopt(ncb->sockfd, SOL_SOCKET, dir, (const void *)&size, sizeof(size));
+    }
+    
+     return -EINVAL;
+}
+
+int ncb_get_window_size(ncb_t *ncb, int dir, int *size){
+    if (ncb && size){
+        socklen_t optlen = sizeof(int);
+        if (getsockopt(ncb->sockfd, SOL_SOCKET, dir, (void *__restrict)size, &optlen) < 0){
+            return -1;
+        }
+    }
+    
+     return -EINVAL;
+}
+
+int ncb_set_linger(ncb_t *ncb, int onoff, int lin){
+    struct linger lgr;
+    
+    if (!ncb){
+        return -EINVAL;
+    }
+    
+    lgr.l_onoff = onoff;
+    lgr.l_linger = lin;
+    return setsockopt(ncb->sockfd, SOL_SOCKET, SO_LINGER, (char *) &lgr, sizeof ( struct linger));
+}
+
+int ncb_get_linger(ncb_t *ncb, int *onoff, int *lin) {
+    struct linger lgr;
+    socklen_t optlen = sizeof (lgr);
+
+    if (!ncb) {
+        return -EINVAL;
+    }
+
+    if (getsockopt(ncb->sockfd, SOL_SOCKET, SO_KEEPALIVE, (void *__restrict) & lgr, &optlen) < 0) {
+        return -1;
+    }
+
+    if (onoff){
+        *onoff = lgr.l_onoff;
+    }
+    
+    if (lin){
+        *lin = lgr.l_linger;
+    }
+    
+    return 0;
+}
+
+int ncb_set_keepalive(ncb_t *ncb, int enable) {
+    if (ncb) {
+        return setsockopt(ncb->sockfd, SOL_SOCKET, SO_KEEPALIVE, (const char *) &enable, sizeof ( enable));
+    }
+    return -EINVAL;
+}
+
+int ncb_get_keepalive(ncb_t *ncb, int *enabled){
+    if (ncb && enabled) {
+        socklen_t optlen = sizeof(int);
+        return getsockopt(ncb->sockfd, SOL_SOCKET, SO_KEEPALIVE, (void *__restrict)enabled, &optlen);
+    }
+    return -EINVAL;
 }

@@ -11,6 +11,7 @@ EXPORTS
 	tcp_destroy
 	tcp_listen
 	tcp_connect
+	tcp_connect2
 	tcp_write
 	tcp_getaddr
 	tcp_setopt

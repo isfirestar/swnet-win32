@@ -13,6 +13,10 @@ typedef struct _udp_cinit {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void udp_shutdown( packet_t * packet );
+static
+int udp_set_boardcast( ncb_t *ncb, int enable );
+static
+int udp_get_boardcast( ncb_t *ncb, int *enabled );
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -42,14 +46,14 @@ static void udp_dispatch_io_recv( packet_t *packet )
 
 	if ( !packet ) return;
 
-	ncb = udprefr( packet->h_ );
+	ncb = udprefr( packet->link );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->h_ );
+		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
 	// 填充接收数据事件
-	c_event.Ln.Udp.Link = ( HUDPLINK ) packet->h_;
+	c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
 	c_event.Event = EVT_RECEIVEDATA;
 
 	// 通知接收事件
@@ -66,7 +70,7 @@ static void udp_dispatch_io_recv( packet_t *packet )
 	packet->size_for_translation_ = 0;
 	asio_udp_recv( packet );
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 }
 
 static void udp_dispatch_io_send( packet_t * packet )
@@ -85,16 +89,16 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	if ( !packet ) return;
 
-	ncb = udprefr( packet->h_ );
+	ncb = udprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->h_ );
+		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
-	os_dbg_warn( "IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->h_, status );
+	os_dbg_warn("IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
 
 	// 回调通知异常事件
-	c_event.Ln.Udp.Link = ( HUDPLINK ) packet->h_;
+	c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
 	c_event.Event = EVT_EXCEPTION;
 	if ( kSend == packet->type_ ) {
 		c_data.e.Exception.SubEvent = EVT_SENDDATA;
@@ -110,51 +114,18 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	udp_shutdown( packet );
 }
 
-static int udp_setopt_i( SOCKET *s, int boardcast_enabled )
-{
-	static const int RECV_BUFFER_SIZE = SO_MAX_MSG_SIZE;
-	static const int SEND_BUFFER_SIZE = MAXWORD;
-	int retval;
-	int enable;
-	int reuse_addr;
+static int udp_update_opts(ncb_t *ncb) {
+	static const int RECV_BUFFER_SIZE = 0xFFFF;
+    static const int SEND_BUFFER_SIZE = 0xFFFF;
 
-	if ( !s ) return -1;
+    if (!ncb) {
+		return -EINVAL;
+    }
 
-	do {
-
-		enable = boardcast_enabled;
-
-		// UDP 的底层协议缓冲区使用标准强置为 SO_MAX_MSG_SIZE
-		retval = setsockopt( *s, SOL_SOCKET, SO_RCVBUF, ( const char * ) &RECV_BUFFER_SIZE, sizeof( RECV_BUFFER_SIZE ) );
-		if ( retval < 0 ) {
-			break;
-		}
-		retval = setsockopt( *s, SOL_SOCKET, SO_SNDBUF, ( const char * ) &SEND_BUFFER_SIZE, sizeof( SEND_BUFFER_SIZE ) );
-		if ( retval < 0 ) {
-			break;
-		}
-
-		// 端口复用
-		reuse_addr = 1;
-		retval = setsockopt( *s, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &reuse_addr, sizeof( reuse_addr ) );
-		if ( retval < 0 ) {
-			break;
-		}
-
-		// 如果该 UDP 子对象希望作为广播使用, 则应该打上广播标记
-		if ( enable ) {
-			retval = setsockopt( *s, SOL_SOCKET, SO_BROADCAST, ( const char * ) &enable, sizeof( enable ) );
-			if ( retval < 0 ) {
-				break;
-			}
-		}
-
-		return 0;
-
-	} while ( FALSE );
-
-	os_dbg_error("syscall failed,error code=%u", WSAGetLastError() );
-	return retval;
+    ncb_set_window_size(ncb, SO_RCVBUF, RECV_BUFFER_SIZE);
+    ncb_set_window_size(ncb, SO_SNDBUF, SEND_BUFFER_SIZE);
+    ncb_set_linger(ncb, 0, 1);
+	return 0;
 }
 
 static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
@@ -170,14 +141,14 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 	if ( !ctx || !ncb ) return -1;
 
 	ncb_init( ncb, kProto_UDP );
-	ncb->h_ = h;
-	ncb->sock_ = so_allocate_asio_socket( SOCK_DGRAM, IPPROTO_UDP );
-	if ( ncb->sock_ < 0 ) {
+	ncb->link = h;
+	ncb->sockfd = so_allocate_asio_socket(SOCK_DGRAM, IPPROTO_UDP);
+	if (ncb->sockfd < 0) {
 		return -1;
 	}
 
 	do {
-		if ( so_bind( &ncb->sock_, ctx->ipv4_, ctx->port_ ) < 0 ) {
+		if (so_bind(&ncb->sockfd, ctx->ipv4_, ctx->port_) < 0) {
 			break;
 		}
 
@@ -189,43 +160,49 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 		// 如果采用随机端口绑定， 则应该获取真实的绑定端口
 		if ( 0 == ctx->port_ ) {
 			int len = sizeof( conn_addr );
-			if ( getsockname( ncb->sock_, ( SOCKADDR* )&conn_addr, &len ) >= 0 ) {
+			if (getsockname(ncb->sockfd, (SOCKADDR*)&conn_addr, &len) >= 0) {
 				ncb->l_addr_.sin_port = ntohs( conn_addr.sin_port );
 			}
 		}
 
-		// UDP标记
-		ncb->flag_ = ctx->ncb_flag_;
-
 		// 设置一些套接字参数
-		if ( udp_setopt_i( &ncb->sock_, ( ncb->flag_ & UDP_FLAG_BROADCAST ) ) < 0 ) {
-			ncb_report_debug_information( ncb, "syscall setsockopt failed,error code=%u",WSAGetLastError()  );
-			break;
-		}
+		udp_update_opts( ncb );
+
+		// UDP标记
+		if ( ctx->ncb_flag_ &  UDP_FLAG_BROADCAST ) {
+			if ( udp_set_boardcast( ncb, 1 ) < 0 ) {
+				break;
+			}
+			ncb->flag_ |= UDP_FLAG_BROADCAST;
+		} else {
+            if (ctx->ncb_flag_ & UDP_FLAG_MULTICAST) {
+                ncb->flag_ |= UDP_FLAG_MULTICAST;
+            }
+        }
 
 		// 关闭因对端被强制无效化，导致的本地 io 错误
 		// 这项属性打开情形下会导致 WSAECONNRESET 错误返回
 		behavior = -1;
-		if ( WSAIoctl( ncb->sock_, SIO_UDP_CONNRESET, &behavior, sizeof( behavior ), NULL, 0, &bytes_returned, NULL, NULL ) < 0 ) {
+		if (WSAIoctl(ncb->sockfd, SIO_UDP_CONNRESET, &behavior, sizeof(behavior), NULL, 0, &bytes_returned, NULL, NULL) < 0) {
 			ncb_report_debug_information(ncb, "syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u ", WSAGetLastError() );
 			break;
 		}
 
 		// 将对象绑定到异步IO的完成端口
-		if ( iocp_bind( ncb->sock_ ) < 0 ) break;
+		if (iocp_bind(ncb->sockfd) < 0) break;
 
 		// 回调用户地址， 通知调用线程， UDP 子对象已经创建完成
 		ncb_set_callback( ncb, ctx->f_user_callback_ );
 		c_event.Event = EVT_CREATED;
-		c_event.Ln.Udp.Link = ( HUDPLINK ) ncb->h_;
-		c_data.e.LinkOption.OptionLink = ( HUDPLINK ) ncb->h_;
-		ncb_callback( ncb, ( const void * ) &c_event, ( const void * ) ncb->h_ );
+		c_event.Ln.Udp.Link = (HUDPLINK)ncb->link;
+		c_data.e.LinkOption.OptionLink = (HUDPLINK)ncb->link;
+		ncb_callback(ncb, &c_event, &c_data);
 
 		return 0;
 
 	} while ( FALSE );
 
-	so_close( &ncb->sock_ );
+	so_close(&ncb->sockfd);
 	return -1;
 }
 
@@ -244,7 +221,7 @@ static void udp_unload( objhld_t h, void * user_buffer )
 	ncb_callback( ncb, &c_event, &h );
 
 	// 关闭内部套接字
-	so_close( &ncb->sock_ );
+	so_close(&ncb->sockfd);
 
 	// 关闭后事件
 	c_event.Event = EVT_CLOSED;
@@ -313,7 +290,7 @@ static packet_t **udp_allocate_recv_array( objhld_t h, int cnt )
 void udp_shutdown( packet_t * packet )
 {
 	if ( packet ) {
-		objclos( packet->h_ );
+		objclos(packet->link);
 		free_packet( packet );
 	}
 }
@@ -460,7 +437,7 @@ int __stdcall udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
 			*port_output = 0;
 		}
 
-		objdefr( ncb->h_ );
+		objdefr( ncb->link );
 		return 0;
 	}
 
@@ -484,9 +461,9 @@ int __stdcall udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int
 	}
 
 	if ( kProto_UDP == ncb->proto_type_ ) {
-		retval = ( ( kProto_UDP == ncb->proto_type_ ) ? setsockopt( ncb->sock_, level, opt, val, len ) : ( -1 ) );
+		retval = ((kProto_UDP == ncb->proto_type_) ? setsockopt(ncb->sockfd, level, opt, val, len) : (-1));
 	}
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -506,9 +483,9 @@ int __stdcall udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len 
 	}
 
 	if ( kProto_UDP == ncb->proto_type_ ) {
-		retval = ( ( kProto_UDP == ncb->proto_type_ ) ? getsockopt( ncb->sock_, level, opt, val, len ) : ( -1 ) );
+		retval = ((kProto_UDP == ncb->proto_type_) ? getsockopt(ncb->sockfd, level, opt, val, len) : (-1));
 	}
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -550,7 +527,7 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 
 	} while ( FALSE );
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -607,7 +584,7 @@ int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port 
 
 	} while ( FALSE );
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -627,7 +604,7 @@ void __stdcall udp_detach_grp( HUDPLINK lnk )
 		}
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 }
 
 int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
@@ -671,6 +648,102 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 		free_packet( packet );
 	} while ( FALSE );
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
+}
+
+int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) {
+    ncb_t *ncb;
+    objhld_t hld = (objhld_t) lnk;
+    int retval;
+
+    if (lnk < 0 || !g_ipstr || 0 == g_port) {
+        return -EINVAL;
+    }
+
+    ncb = objrefr(hld);
+    if (!ncb) return -1;
+
+    do {
+        retval = -1;
+
+        if (!(ncb->flag_ & UDP_FLAG_MULTICAST)) {
+            break;
+        }
+
+        /*设置回环许可*/
+        int loop = 1;
+		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&loop, sizeof (loop));
+        if (retval < 0) {
+            break;
+        }
+        
+        /*加入多播组*/
+        if (!ncb->mreq){
+            ncb->mreq = (struct ip_mreq *)malloc(sizeof(struct ip_mreq));
+		}
+		if ( !ncb->mreq ) {
+			break;
+		}
+        ncb->mreq->imr_multiaddr.s_addr = inet_addr(g_ipstr); 
+        ncb->mreq->imr_interface.s_addr = ncb->l_addr_.sin_addr.s_addr; 
+		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
+        if (retval < 0){
+            break;
+        }
+        
+    } while (0);
+
+    objdefr(hld);
+    return retval;
+}
+
+int __stdcall udp_dropgrp(HUDPLINK lnk){
+    ncb_t *ncb;
+    objhld_t hld = (objhld_t) lnk;
+    int retval;
+    
+    if (lnk < 0){
+        return -EINVAL;
+    }
+    
+    ncb = objrefr(hld);
+    if (!ncb) return -1;
+    
+    do{
+        retval = -1;
+        
+        if (!(ncb->flag_ & UDP_FLAG_MULTICAST) || !ncb->mreq) {
+            break;
+        }
+
+		/*还原回环许可*/
+        int loop = 0;
+		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&loop, sizeof (loop));
+        if (retval < 0) {
+            break;
+        }
+        
+        /*离开多播组*/
+		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
+        
+    }while(0);
+    
+    objdefr(hld);
+    return retval;
+}
+
+int udp_set_boardcast(ncb_t *ncb, int enable) {
+    if (ncb) {
+        return setsockopt(ncb->sockfd, SOL_SOCKET, SO_BROADCAST, (const void *) &enable, sizeof (enable));
+    }
+    return -EINVAL;
+}
+
+int udp_get_boardcast(ncb_t *ncb, int *enabled) {
+    if (ncb && enabled) {
+        socklen_t optlen = sizeof (int);
+        return getsockopt(ncb->sockfd, SOL_SOCKET, SO_BROADCAST, (void * __restrict)enabled, &optlen);
+    }
+    return -EINVAL;
 }

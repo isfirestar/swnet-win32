@@ -28,6 +28,11 @@ static long __tcp_global_sender_cached_cnt = 0; // TCP 全局缓存的发送包个数(未发
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void tcp_shutdwon_by_packet( packet_t * packet );
+static int tcp_save_info( ncb_t *ncb );
+static int tcp_setmss( ncb_t *ncb, int mss );
+static int tcp_getmss( ncb_t *ncb );
+static int tcp_set_nodelay( ncb_t *ncb, int set );
+static int tcp_get_nodelay( ncb_t *ncb, int *set );
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -134,7 +139,7 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 	// 足以填充大包， 则将大包填充满并回调到用户例程
 	assert(ncb->lb_cpy_offset_ + lb_acquire_size <= ncb->lb_length_);
 	memcpy( ncb->lb_data_ + ncb->lb_cpy_offset_, ( char * ) packet->ori_buffer_, lb_acquire_size );
-	c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->h_;
+	c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->link;
 	c_event.Event = EVT_RECEIVEDATA;
 	c_data.e.Packet.Size = user_size;
 	c_data.e.Packet.Data = ( const char * ) ( ( char * ) ncb->lb_data_ + ncb->tcp_tst_.cb_ );
@@ -176,7 +181,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 
 	// 没有指定包头模板， 直接回调整个TCP包
 	if ( 0 == ncb->tcp_tst_.cb_ ) {
-		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->h_;
+		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->link;
 		c_event.Event = EVT_RECEIVEDATA;
 		c_data.e.Packet.Size = current_usefule_size;
 		c_data.e.Packet.Data = ( const char * ) ( ( char * ) packet->ori_buffer_ + current_parse_offset + ncb->tcp_tst_.cb_ );
@@ -214,7 +219,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		if ( current_usefule_size < logic_revise_acquire_size ) break;
 
 		// 回调到用户例程, 使用其实地址累加解析偏移， 直接赋予回调例程的结构指针， 因为const限制， 调用线程不应该刻意修改该串的值
-		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->h_;
+		c_event.Ln.Tcp.Link = (HTCPLINK)ncb->link;
 		c_event.Event = EVT_RECEIVEDATA;
 		c_data.e.Packet.Size = user_size;
 		c_data.e.Packet.Data = ( const char * ) ( ( char * ) packet->ori_buffer_ + current_parse_offset + ncb->tcp_tst_.cb_ );
@@ -235,58 +240,20 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 	return 0;
 }
 
-static 
-int tcp_setopt_i( SOCKET *s )
-{
-	static const int tcp_cache_size = TCP_BUFFER_SIZE;
-	int retval;
-	int disable_nagle;
-	int reuse_addr;
-	int enable_automatic_keepalive;
-	struct linger lgr;
+int tcp_update_opts(ncb_t *ncb) {
+    if (!ncb) {
+        return -1;
+    }
 
-	if ( !s ) return -1;
-
-	// 收发缓冲区大小和发送缓冲区大小, 这里是建议的 TCP window, 但并不和实际生效的 TCP window 一致, 最大化 MTU 对齐, 以保证最佳性能
-	retval = setsockopt( *s, SOL_SOCKET, SO_RCVBUF, ( const char * ) &tcp_cache_size, sizeof( int ) );
-	if ( retval < 0 ) {
-		return -1;
-	}
-	retval = setsockopt( *s, SOL_SOCKET, SO_SNDBUF, ( const char * ) &tcp_cache_size, sizeof( int ) );
-	if ( retval < 0 ) {
-		return -1;
-	}
-
-	// 避免小帧带来的效率影响， 这里禁用 Nagle 算法
-	disable_nagle = 1;
-	retval = setsockopt( *s, IPPROTO_TCP, TCP_NODELAY, ( const char * ) &disable_nagle, sizeof( disable_nagle ) );
-	if ( retval < 0 ) {
-		return -1;
-	}
-
-	// 端口复用
-	reuse_addr = 1;
-	retval = setsockopt( *s, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &reuse_addr, sizeof( reuse_addr ) );
-	if ( retval < 0 ) {
-		return -1;
-	}
-
-	// 启用 TCP 心跳
-	enable_automatic_keepalive = 1;
-	retval = setsockopt( *s, SOL_SOCKET, SO_KEEPALIVE, ( const char * ) &enable_automatic_keepalive, sizeof( enable_automatic_keepalive ) );
-	if ( retval < 0 ) {
-		return -1;
-	}
-
-	// 强制在接收/发送缓冲区有数据执行的过程中， 关闭 TCP 链接， 规避 closescoket 在忙碌状态下， 卡死在 ZwClose 的系统错误
-	lgr.l_onoff = 0;
-	lgr.l_linger = 1;
-	retval = setsockopt( *s, SOL_SOCKET, SO_LINGER, ( const char * ) &lgr, sizeof( lgr ) );
-	if ( retval < 0 ) {
-		return -1;
-	}
-
-	return 0;
+    ncb_set_window_size(ncb, SO_RCVBUF, TCP_BUFFER_SIZE );
+    ncb_set_window_size(ncb, SO_SNDBUF, TCP_BUFFER_SIZE );
+    ncb_set_linger(ncb, 0, 1);
+    ncb_set_keepalive(ncb, 1);
+     
+    tcp_set_nodelay(ncb, 1);   /* 为保证小包效率， 禁用 Nginx 算法 */
+    tcp_save_info(ncb);
+    
+    return 0;
 }
 
 static
@@ -306,10 +273,10 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		retval = -1;
 
 		ncb_init( ncb, kProto_TCP );
-		ncb->h_ = h;
+		ncb->link = h;
 
-		ncb->sock_ = so_allocate_asio_socket( SOCK_STREAM, IPPROTO_TCP );
-		if ( ncb->sock_ < 0 ) break;
+		ncb->sockfd = so_allocate_asio_socket(SOCK_STREAM, IPPROTO_TCP);
+		if (ncb->sockfd < 0) break;
 
 		// 如果是远程连接得到的ncb_t, 操作到此完成
 		if ( init_ctx->is_remote_ ) {
@@ -318,7 +285,7 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		}
 
 		// setsockopt 设置套接字参数
-		if ( tcp_setopt_i( &ncb->sock_ ) < 0 ) break;
+		if ( tcp_update_opts( ncb) < 0 ) break;
 
 		// 创建阶段， 无论是否随机网卡，随机端口绑定， 都先行计入本地地址信息
 		// 在执行accept, connect后， 如果是随机端口绑定， 则可以取到实际生效的地址信息
@@ -330,7 +297,7 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		ncb->tcp_usable_sender_cache_ = TCP_BUFFER_SIZE;
 
 		// 将对象绑定到异步IO的完成端口
-		if ( iocp_bind( ncb->sock_ ) < 0 ) break;
+		if (iocp_bind(ncb->sockfd) < 0) break;
 
 		retval = 0;
 
@@ -343,12 +310,12 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		c_data.e.Exception.SubEvent = EVT_CREATED;
 		c_data.e.Exception.ErrorCode = ( long ) WSAGetLastError();
 		init_ctx->callback_( ( const void * ) &c_event, ( const void * ) &c_data );
-		if ( ncb->sock_ > 0 ) so_close( &ncb->sock_ );
+		if (ncb->sockfd > 0) so_close(&ncb->sockfd);
 	} else {
 		ncb_set_callback( ncb, init_ctx->callback_ );
 		c_event.Event = EVT_CREATED;
-		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->h_;
-		c_data.e.LinkOption.OptionLink = ( HTCPLINK ) ncb->h_;
+		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->link;
+		c_data.e.LinkOption.OptionLink = ( HTCPLINK ) ncb->link;
 		ncb_callback( ncb, &c_event, &c_data );
 	}
 
@@ -372,7 +339,7 @@ void tcp_unload( objhld_t h, void * user_buffer )
 	ncb->tcp_callback_( ( const void * ) &c_event, ( const void * ) &c_data );
 
 	// 关闭内部套接字
-	so_close( &ncb->sock_ );
+	so_close(&ncb->sockfd);
 
 	// 处理关闭后事件
 	c_event.Event = EVT_CLOSED;
@@ -438,7 +405,7 @@ int tcp_syn( ncb_t * ncb_listen )
 
 	if ( !ncb_listen ) return -1;
 
-	if ( allocate_packet( ncb_listen->h_, kProto_TCP, kSyn, TCP_ACCEPT_EXTENSION_SIZE, kVirtualHeap, &syn_packet ) < 0 ) {
+	if ( allocate_packet( ncb_listen->link, kProto_TCP, kSyn, TCP_ACCEPT_EXTENSION_SIZE, kVirtualHeap, &syn_packet ) < 0 ) {
 		return -1;
 	}
 
@@ -453,7 +420,7 @@ int tcp_syn( ncb_t * ncb_listen )
 		}
 
 		// 还是继续沿用当前接收包的内存
-		syn_packet->accepted_ = h;
+		syn_packet->accepted_link = h;
 
 		// 继续抛送接收链接请求
 		if ( asio_tcp_accept( syn_packet ) >= 0 ) return 0;
@@ -464,7 +431,7 @@ int tcp_syn( ncb_t * ncb_listen )
 
 	} while ( i++ < TCP_SYN_REQ_TIMES );
 
-	objclos( ncb_listen->h_ );
+	objclos( ncb_listen->link );
 	return -1;
 }
 
@@ -487,7 +454,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 	if ( !ncb_listen || !ncb_accepted || !packet ) return -1;
 
 	if ( !WSAGetAcceptExSockAddrs ) {
-		status = ( NTSTATUS ) WSAIoctl( ncb_accepted->sock_, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_GET_ACCEPTEX_SOCK_ADDRS,
+		status = (NTSTATUS)WSAIoctl(ncb_accepted->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_GET_ACCEPTEX_SOCK_ADDRS,
 			sizeof( GUID_GET_ACCEPTEX_SOCK_ADDRS ), &WSAGetAcceptExSockAddrs, sizeof( WSAGetAcceptExSockAddrs ), &cb_ioctl, NULL, NULL );
 		if ( !NT_SUCCESS( status ) ) {
 			ncb_report_debug_information(ncb_accepted, "syscall WSAIoctl for GUID_GET_ACCEPTEX_SOCK_ADDRS failed,NTSTATUS=0x%08X", status );
@@ -495,7 +462,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		}
 	}
 
-	retval = setsockopt( ncb_accepted->sock_, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, ( char * ) &ncb_listen->sock_, sizeof( SOCKET ) );
+	retval = setsockopt(ncb_accepted->sockfd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char *)&ncb_listen->sockfd, sizeof(SOCKET));
 	if ( retval >= 0 ) {
 		WSAGetAcceptExSockAddrs( packet->irp_, 0, sizeof( struct sockaddr_in ) + 16, sizeof( struct sockaddr_in ) + 16,
 			&l_addr, &l_len, &r_addr, &r_len );
@@ -511,10 +478,10 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		ncb_accepted->l_addr_.sin_port = pl->sin_port;
 		ncb_accepted->l_addr_.sin_addr.S_un.S_addr = pl->sin_addr.S_un.S_addr;
 
-		if ( iocp_bind( ncb_accepted->sock_ ) >= 0 ) {
-			c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb_listen->h_;
+		if (iocp_bind(ncb_accepted->sockfd) >= 0) {
+			c_event.Ln.Tcp.Link = (HTCPLINK)ncb_listen->link;
 			c_event.Event = EVT_TCP_ACCEPTED;
-			c_data.e.Accept.AcceptLink = ( HTCPLINK ) ncb_accepted->h_;
+			c_data.e.Accept.AcceptLink = (HTCPLINK)ncb_accepted->link;
 			ncb_callback( ncb_accepted, &c_event, &c_data );
 			return 0;
 		}
@@ -542,18 +509,18 @@ void tcp_dispatch_io_syn( packet_t * packet )
 
 	if ( !packet )  return;
 
-	ncb_listen = tcprefr( packet->h_ );
+	ncb_listen = tcprefr(packet->link);
 	if ( !ncb_listen ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", packet->h_ );
+		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
 	// 后续操作不依赖于远端对象的引用成功， 即远端对象即使引用失败， 也不影响下个accept请求的投递
-	ncb_accepted = tcprefr( packet->accepted_ );
+	ncb_accepted = tcprefr(packet->accepted_link);
 	if ( ncb_accepted ) {
 		retval = tcp_syn_copy( ncb_listen, ncb_accepted, packet );
 		if ( retval >= 0 ) {
-			retval = allocate_packet( ncb_accepted->h_, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &recv_packet );
+			retval = allocate_packet(ncb_accepted->link, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &recv_packet);
 			if ( retval >= 0 ) {
 				retval = asio_tcp_recv( recv_packet );
 			}
@@ -562,17 +529,17 @@ void tcp_dispatch_io_syn( packet_t * packet )
 		// 此处增加特殊处理， 即使没有成功投递接收请求， 也不应该影响投递下一个ACCEPT请求
 		// 但是如果RECV请求无法正确投递， 可以关闭当前ACCEPT上来的链接
 		if ( retval < 0 ) {
-			objclos( ncb_accepted->h_ );
+			objclos( ncb_accepted->link );
 		}
 
-		objdefr( ncb_accepted->h_ );
+		objdefr(ncb_accepted->link);
 	}
 
 	if ( tcp_syn( ncb_listen ) < 0 ) {
-		objclos( ncb_listen->h_ );
+		objclos(ncb_listen->link);
 	}
 
-	objdefr( ncb_listen->h_ );
+	objdefr(ncb_listen->link);
 }
 
 static
@@ -589,9 +556,9 @@ void tcp_dispatch_io_send( packet_t *packet )
 		return;
 	}
 
-	ncb = tcprefr( packet->h_ );
+	ncb = tcprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", packet->h_ );
+		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
@@ -612,7 +579,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 	// 继续尝试发下一个包
 	tcp_try_write( ncb );
 
-	h = packet->h_;
+	h = packet->link;
 
 	// 释放本包
 	free_packet( packet );
@@ -633,9 +600,9 @@ void tcp_dispatch_io_recv( packet_t * packet )
 		return;
 	}
 
-	ncb = tcprefr( packet->h_ );
+	ncb = tcprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", packet->h_ );
+		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
@@ -670,11 +637,75 @@ void tcp_dispatch_io_recv( packet_t * packet )
 	}
 
 	if ( retval < 0 ) {
-		objclos( ncb->h_ );
+		objclos(ncb->link);
 		free_packet( packet );
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
+}
+
+static
+void tcp_dispatch_io_connected(packet_t * packet){
+	ncb_t *ncb;
+	nis_event_t c_event;
+	tcp_data_t c_data;
+	packet_t *packet_rcv;
+	int optval;
+
+	ncb = tcprefr(packet->link);
+	if (!ncb){
+		return;
+	}
+
+	optval = -1;
+	packet_rcv = NULL;
+
+	do {
+		// 如果本地采取随机地址结构或端口， 则需要取得唯一生效的地址结构和端口
+		if (0 == ncb->l_addr_.sin_port || 0 == ncb->l_addr_.sin_addr.S_un.S_addr) {
+			struct sockaddr_in name;
+			int name_length = sizeof(name);
+			if (getsockname(ncb->sockfd, (struct sockaddr *)&name, &name_length) >= 0) {
+				ncb->l_addr_.sin_port = name.sin_port;
+				ncb->l_addr_.sin_addr.S_un.S_addr = ntohl(name.sin_addr.S_un.S_addr);/*为了保持兼容性， 这里转换地址为大端*/
+			}
+		}
+
+		// 异步连接完成后，更新连接对象的上下文属性
+		if (setsockopt(ncb->sockfd, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0) >= 0){
+			int namelen = sizeof(ncb->r_addr_);
+			getpeername(ncb->sockfd, (struct sockaddr *)&ncb->r_addr_, &namelen);
+		}
+		
+		c_event.Ln.Tcp.Link = ncb->link;
+		c_event.Event = EVT_TCP_CONNECTED;
+		c_data.e.LinkOption.OptionLink = ncb->link;
+		ncb_callback(ncb, &c_event, &c_data);
+
+		// 成功连接对端， 应该投递一个接收数据的IRP， 允许这个连接接收数据
+		if (allocate_packet(ncb->link, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet_rcv) < 0) {
+			break;
+		}
+
+		if (asio_tcp_recv(packet_rcv) < 0) {
+			break;
+		}
+
+		optval = 0;
+		
+	} while ( 0 );
+
+	if (packet){
+		free_packet(packet);
+	}
+	objdefr(ncb->link);
+	
+	if (optval < 0){
+		objclos(ncb->link);
+		if (packet_rcv){
+			free_packet(packet_rcv);
+		}
+	}
 }
 
 static 
@@ -684,13 +715,13 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	if ( !packet ) return;
 
-	ncb = tcprefr( packet->h_ );
+	ncb = tcprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", packet->h_ );
+		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
-	os_dbg_warn( "IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->h_, status );
+	os_dbg_warn("IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
 
 	// 发送异常需要递减未决请求量
 	if ( kSend == packet->type_ ) {
@@ -708,7 +739,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		tcp_shutdwon_by_packet( packet );
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -732,6 +763,9 @@ void tcp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 		case kSend:
 			tcp_dispatch_io_send( packet );
 			break;
+		case kConnect:
+			tcp_dispatch_io_connected(packet);
+			break;
 		default:
 			break;
 	}
@@ -751,10 +785,11 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 
 	switch ( packet->type_ ) {
 
-		case kRecv:// 接收只需要简单释放包载体即可
-		case kSend:// 发送还需要归还缓冲区内存池节点
+		case kRecv:
+		case kSend:
+		case kConnect: 
 			{
-				objclos( packet->h_ );
+				objclos(packet->link);
 				free_packet( packet );
 			}
 			break;
@@ -767,13 +802,13 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 			//
 		case kSyn:
 			{
-				objclos( packet->accepted_ );
+				objclos(packet->accepted_link);
 				free_packet( packet );
 
-				ncb = tcprefr( packet->h_ );
+				ncb = tcprefr(packet->link);
 				if ( ncb ) {
 					tcp_syn( ncb );
-					objdefr( ncb->h_ );
+					objdefr( ncb->link );
 				}
 			}
 			break;
@@ -807,7 +842,7 @@ int __stdcall tcp_settst( HTCPLINK lnk, const tst_t *tst )
 	ncb->tcp_tst_.builder_ = tst->builder_;
 	ncb->tcp_tst_.parser_ = tst->parser_;
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return 0;
 }
 
@@ -824,7 +859,7 @@ int __stdcall tcp_gettst( HTCPLINK lnk, tst_t *tst )
 	tst->builder_ = ncb->tcp_tst_.builder_;
 	tst->parser_ = ncb->tcp_tst_.parser_;
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return 0;
 }
 
@@ -850,9 +885,23 @@ HTCPLINK __stdcall tcp_create( tcp_io_callback_t user_callback, const char* l_ip
 	return ( HTCPLINK ) tcp_allocate_object( &ctx );
 }
 
+/*
+ * 关闭响应变更:
+ * 对象销毁操作有可能是希望中断某些阻塞操作， 如 connect
+ * 故将销毁行为调整为直接关闭描述符后， 通过智能指针销毁对象
+ */
 void __stdcall tcp_destroy( HTCPLINK lnk )
 {
-	objclos( ( objhld_t ) lnk );
+	ncb_t *ncb;
+    objhld_t hld = (objhld_t)lnk;
+    
+    ncb = objrefr(hld);
+    if (ncb) {
+		so_close(&ncb->sockfd);
+        objdefr(hld);
+    }
+    
+    objclos(hld);
 }
 
 int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
@@ -863,7 +912,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 	tcp_data_t c_data;
 	packet_t * packet = NULL;
 
-	if ( !r_ipstr || 0 == port ) return -1;
+	if ( !r_ipstr || 0 == port ) return -EINVAL;
 
 	ncb = tcprefr( lnk );
 	if ( !ncb ) {
@@ -872,14 +921,18 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 	}
 
 	if ( inet_pton( AF_INET, r_ipstr, &r_addr.sin_addr ) <= 0 ) {
-		objdefr( ncb->h_ );
+		objdefr( ncb->link );
 		return - 1;
 	}
 	r_addr.sin_family = AF_INET;
 	r_addr.sin_port = htons( port );
 
 	do {
-		if ( connect( ncb->sock_, ( const struct sockaddr * )&r_addr, sizeof( r_addr ) ) < 0 ) {
+		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
+			break;
+		}
+
+		if (connect(ncb->sockfd, (const struct sockaddr *)&r_addr, sizeof(r_addr)) < 0) {
 			os_dbg_warn( "tcp_connect", "syscall failed,target endpoint=%s:%u, error code=%u", r_ipstr, port, WSAGetLastError() );
 			break;
 		}
@@ -888,7 +941,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 		if ( 0 == ncb->l_addr_.sin_port || 0 == ncb->l_addr_.sin_addr.S_un.S_addr ) {
 			struct sockaddr_in name;
 			int name_length = sizeof( name );
-			if ( getsockname( ncb->sock_, ( struct sockaddr * )&name, &name_length ) >= 0 ) {
+			if (getsockname(ncb->sockfd, (struct sockaddr *)&name, &name_length) >= 0) {
 				ncb->l_addr_.sin_port = name.sin_port;
 				ncb->l_addr_.sin_addr.S_un.S_addr = ntohl( name.sin_addr.S_un.S_addr );/*为了保持兼容性， 这里转换地址为大端*/
 			}
@@ -900,7 +953,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 		ncb_callback( ncb, &c_event, &c_data );
 
 		// 成功连接对端， 应该投递一个接收数据的IRP， 允许这个连接接收数据
-		if ( allocate_packet( ncb->h_, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet ) < 0 ) {
+		if (allocate_packet(ncb->link, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet) < 0) {
 			break;
 		}
 
@@ -911,14 +964,56 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 		inet_pton( AF_INET, r_ipstr, &ncb->r_addr_.sin_addr );
 		ncb->r_addr_.sin_port = htons( port );
 
-		objdefr( ncb->h_ );
+		objdefr( ncb->link );
 
 		return 0;
 
 	} while ( FALSE );
 
 	free_packet( packet );
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
+	return -1;
+}
+
+int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
+{
+	ncb_t *ncb;
+	packet_t * packet = NULL;
+
+	if (!r_ipstr || 0 == port) return -EINVAL;
+
+	ncb = tcprefr(lnk);
+	if (!ncb) {
+		os_dbg_warn("fail to reference ncb object:0x%08X", lnk);
+		return -1;
+	}
+
+	do {
+		if (allocate_packet(ncb->link, kProto_TCP, kConnect, 0, kNoAccess, &packet) < 0) {
+			break;
+		}
+
+		if (inet_pton(AF_INET, r_ipstr, &packet->r_addr_.sin_addr) <= 0) {
+			break;
+		}
+		packet->r_addr_.sin_family = AF_INET;
+		packet->r_addr_.sin_port = htons(port);
+
+		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
+			break;
+		}
+
+		if (asio_tcp_connect(packet) < 0){
+			break;
+		}
+
+		objdefr(ncb->link);
+		return 0;
+
+	} while (FALSE);
+
+	free_packet(packet);
+	objdefr(ncb->link);
 	return -1;
 }
 
@@ -940,9 +1035,11 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 
 		if ( 0 == block ) block = TCP_LISTEN_BLOCK_COUNT;
 
-		if ( so_bind( &ncb->sock_, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port ) < 0 ) break;
+		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
+			break;
+		}
 
-		retval = listen( ncb->sock_, block );
+		retval = listen(ncb->sockfd, block);
 		if ( retval < 0 ) {
 			ncb_report_debug_information(ncb, "syscall listen failed,error code=%u", WSAGetLastError() );
 			break;
@@ -956,7 +1053,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 
 	} while ( FALSE );
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -1035,7 +1132,7 @@ int __stdcall tcp_write( HTCPLINK lnk, int cb, int( __stdcall *data_filler )( vo
 	}
 
 	if ( ncb ) {
-		objdefr( ncb->h_ );
+		objdefr( ncb->link );
 	}
 	return retval;
 }
@@ -1058,7 +1155,7 @@ int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *po
 		*ipv4 = htonl( ncb->l_addr_.sin_addr.S_un.S_addr );
 		*port = htons( ncb->l_addr_.sin_port );
 
-		objdefr( ncb->h_ );
+		objdefr( ncb->link );
 		return 0;
 	}
 
@@ -1072,7 +1169,7 @@ int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *po
 		*ipv4 = htonl( ncb->r_addr_.sin_addr.S_un.S_addr );
 		*port = htons( ncb->r_addr_.sin_port );
 
-		objdefr( ncb->h_ );
+		objdefr( ncb->link );
 		return 0;
 	}
 
@@ -1093,13 +1190,13 @@ int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int
 	}
 
 	if ( kProto_TCP == ncb->proto_type_ ) {
-		retval = setsockopt( ncb->sock_, level, opt, val, len );
+		retval = setsockopt(ncb->sockfd, level, opt, val, len);
 		if ( retval < 0 ) {
 			ncb_report_debug_information(ncb, "syscall setsockopt failed,error code=%u", WSAGetLastError() );
 		}
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
 }
 
@@ -1117,12 +1214,48 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 	}
 
 	if ( kProto_TCP == ncb->proto_type_ ) {
-		retval = getsockopt( ncb->sock_, level, opt, OptVal, len );
+		retval = getsockopt(ncb->sockfd, level, opt, OptVal, len);
 		if ( retval < 0 ) {
 			ncb_report_debug_information(ncb, "syscall failed getsockopt ,error code=%u", WSAGetLastError() );
 		}
 	}
 
-	objdefr( ncb->h_ );
+	objdefr( ncb->link );
 	return retval;
+}
+
+int tcp_save_info(ncb_t *ncb) {
+    return -1;
+}
+
+int tcp_setmss(ncb_t *ncb, int mss) {
+    if (ncb && mss > 0) {
+        return setsockopt(ncb->sockfd, IPPROTO_TCP, TCP_MAXSEG, (const void *) &mss, sizeof(mss));
+    }
+    
+    return -EINVAL;
+}
+
+int tcp_getmss(ncb_t *ncb){
+    if (ncb){
+        socklen_t lenmss = sizeof(ncb->mss);
+        return getsockopt(ncb->sockfd, IPPROTO_TCP, TCP_MAXSEG, (void *__restrict)&ncb->mss, &lenmss);
+    }
+    return -EINVAL;
+}
+
+int tcp_set_nodelay(ncb_t *ncb, int set){
+    if (ncb ){
+        return setsockopt(ncb->sockfd, IPPROTO_TCP, TCP_NODELAY, (const void *) &set, sizeof ( set));
+    }
+    
+    return -EINVAL;
+}
+
+int tcp_get_nodelay(ncb_t *ncb, int *set) {
+    if (ncb && set) {
+        socklen_t optlen = sizeof(int);
+        return getsockopt(ncb->sockfd, IPPROTO_TCP, TCP_NODELAY, (void *__restrict)set, &optlen);
+    }
+    return -EINVAL;
 }

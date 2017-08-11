@@ -14,6 +14,7 @@ enum pkt_type_t {
 	kSend = 1,
 	kRecv,
 	kSyn,
+	kConnect,
 	kUnknown,
 };
 
@@ -30,8 +31,8 @@ typedef struct _NCC_PACKET {
 	enum page_style_t page_style_;				// 缓冲区页属性
 	uint32_t flag_;				// 保存异步过程中的flag
 	int from_length_;				// 保存fromlen
-	objhld_t h_;					// 控制块的句柄
-	objhld_t accepted_;			// 用于 tcp accept 的对端对象句柄
+	objhld_t link;					// 控制块的句柄
+	objhld_t accepted_link;			// 用于 tcp accept 的对端对象句柄
 	union {							
 		struct {						// 对 UDP 对象， 存储发送目标地址
 			struct sockaddr_in r_addr_;
@@ -66,5 +67,6 @@ int syio_grp_send( packet_t * packet );
 int asio_tcp_send( packet_t * packet );
 int asio_tcp_accept( packet_t * packet );
 int asio_tcp_recv( packet_t * packet );
+int asio_tcp_connect(packet_t *packet);
 
 #endif
