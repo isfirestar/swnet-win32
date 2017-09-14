@@ -158,3 +158,14 @@ int __stdcall nis_gethost( const char *name, uint32_t *ipv4 ) {
     *ipv4 = ntohl(addr.s_addr);
 	return 0;
 }
+
+char * __stdcall nis_lgethost( char *name, int cb ) {
+	if ( !name || cb <= 0 ) {
+		return NULL;
+	}
+
+	if ( 0 != gethostname( name, cb ) ) {
+		return NULL;
+	}
+	return name;
+}

@@ -38,3 +38,4 @@ EXPORTS
 	nis_ctxsize
 	nis_getver
 	nis_gethost
+	nis_lgethost
