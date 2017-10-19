@@ -225,34 +225,29 @@
     <ClCompile Include="udp.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\libnsp\icom\avltree.h" />
-    <ClInclude Include="..\..\libnsp\icom\base64.h" />
-    <ClInclude Include="..\..\libnsp\icom\clist.h" />
-    <ClInclude Include="..\..\libnsp\icom\compiler.h" />
-    <ClInclude Include="..\..\libnsp\icom\crc32.h" />
-    <ClInclude Include="..\..\libnsp\icom\des.h" />
-    <ClInclude Include="..\..\libnsp\icom\logger.h" />
-    <ClInclude Include="..\..\libnsp\icom\md5.h" />
-    <ClInclude Include="..\..\libnsp\icom\nis.h" />
-    <ClInclude Include="..\..\libnsp\icom\nisdef.h" />
-    <ClInclude Include="..\..\libnsp\icom\object.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_atomic.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_ifos.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_naos.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_string.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_thread.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_time.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_types.h" />
-    <ClInclude Include="..\..\libnsp\icom\posix_wait.h" />
+    <ClInclude Include="..\libnsp\icom\avltree.h" />
+    <ClInclude Include="..\libnsp\icom\base64.h" />
+    <ClInclude Include="..\libnsp\icom\clist.h" />
+    <ClInclude Include="..\libnsp\icom\compiler.h" />
+    <ClInclude Include="..\libnsp\icom\crc32.h" />
+    <ClInclude Include="..\libnsp\icom\des.h" />
+    <ClInclude Include="..\libnsp\icom\logger.h" />
+    <ClInclude Include="..\libnsp\icom\md5.h" />
+    <ClInclude Include="..\libnsp\icom\nis.h" />
+    <ClInclude Include="..\libnsp\icom\nisdef.h" />
+    <ClInclude Include="..\libnsp\icom\object.h" />
+    <ClInclude Include="..\libnsp\icom\posix_atomic.h" />
+    <ClInclude Include="..\libnsp\icom\posix_ifos.h" />
+    <ClInclude Include="..\libnsp\icom\posix_naos.h" />
+    <ClInclude Include="..\libnsp\icom\posix_string.h" />
+    <ClInclude Include="..\libnsp\icom\posix_thread.h" />
+    <ClInclude Include="..\libnsp\icom\posix_time.h" />
+    <ClInclude Include="..\libnsp\icom\posix_wait.h" />
     <ClInclude Include="iocp.h" />
     <ClInclude Include="ncb.h" />
     <ClInclude Include="network.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="packet.h" />
-    <ClInclude Include="resource.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="swnet.rc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="nshost.def" />

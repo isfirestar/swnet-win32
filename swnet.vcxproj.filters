@@ -39,67 +39,61 @@
     <ClInclude Include="iocp.h">
       <Filter>Head Files</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Resource Files</Filter>
-    </ClInclude>
     <ClInclude Include="os.h">
       <Filter>Head Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\avltree.h">
+    <ClInclude Include="..\libnsp\icom\avltree.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\base64.h">
+    <ClInclude Include="..\libnsp\icom\base64.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\clist.h">
+    <ClInclude Include="..\libnsp\icom\clist.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\compiler.h">
+    <ClInclude Include="..\libnsp\icom\compiler.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\crc32.h">
+    <ClInclude Include="..\libnsp\icom\crc32.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\des.h">
+    <ClInclude Include="..\libnsp\icom\des.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\logger.h">
+    <ClInclude Include="..\libnsp\icom\logger.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\md5.h">
+    <ClInclude Include="..\libnsp\icom\md5.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\nis.h">
+    <ClInclude Include="..\libnsp\icom\nis.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\nisdef.h">
+    <ClInclude Include="..\libnsp\icom\nisdef.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\object.h">
+    <ClInclude Include="..\libnsp\icom\object.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_atomic.h">
+    <ClInclude Include="..\libnsp\icom\posix_atomic.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_ifos.h">
+    <ClInclude Include="..\libnsp\icom\posix_ifos.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_naos.h">
+    <ClInclude Include="..\libnsp\icom\posix_naos.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_string.h">
+    <ClInclude Include="..\libnsp\icom\posix_string.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_thread.h">
+    <ClInclude Include="..\libnsp\icom\posix_thread.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_time.h">
+    <ClInclude Include="..\libnsp\icom\posix_time.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_types.h">
-      <Filter>icom</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\posix_wait.h">
+    <ClInclude Include="..\libnsp\icom\posix_wait.h">
       <Filter>icom</Filter>
     </ClInclude>
   </ItemGroup>
@@ -116,11 +110,6 @@
     <Filter Include="icom">
       <UniqueIdentifier>{a86518f7-d731-46e5-adfb-2001dcb9d56c}</UniqueIdentifier>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="swnet.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="nshost.def">

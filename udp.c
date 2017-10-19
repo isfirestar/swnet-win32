@@ -378,6 +378,14 @@ HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ip
 	return ( HUDPLINK ) h;
 }
 
+static int udp_maker( void *data, int cb, void *context ) {
+	if ( data && cb > 0 && context ) {
+		memcpy( data, context, cb );
+		return 0;
+	}
+	return -1;
+}
+
 int __stdcall udp_write( HUDPLINK lnk, int cb, int( __stdcall *data_filler )( void *, int, void * ), void *par, const char* r_ipstr, uint16_t r_port )
 {
 	packet_t * packet;
@@ -392,9 +400,16 @@ int __stdcall udp_write( HUDPLINK lnk, int cb, int( __stdcall *data_filler )( vo
 		return -1;
 	}
 
-	if ( data_filler( buffer, cb, par ) < 0 ) {
-		free( buffer );
-		return -1;
+	if ( data_filler ) {
+		if ( data_filler( buffer, cb, par ) < 0 ) {
+			free( buffer );
+			return -1;
+		}
+	} else {
+		if ( udp_maker( buffer, cb, par ) < 0 ) {
+			free( buffer );
+			return -1;
+		}
 	}
 
 	if ( allocate_packet( ( objhld_t ) lnk, kProto_UDP, kSend, 0, kNoAccess, &packet ) >= 0 ) {

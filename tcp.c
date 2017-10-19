@@ -1057,6 +1057,14 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	return retval;
 }
 
+static int tcp_maker( void *data, int cb, void *context ) {
+	if ( data && cb > 0 && context ) {
+		memcpy( data, context, cb );
+		return 0;
+	}
+	return -1;
+}
+
 int __stdcall tcp_write( HTCPLINK lnk, int cb, int( __stdcall *data_filler )( void *, int, void * ), void *par )
 {
 	char *buffer;
@@ -1101,8 +1109,14 @@ int __stdcall tcp_write( HTCPLINK lnk, int cb, int( __stdcall *data_filler )( vo
 		}
 
 		// 用户负责填充本次发送的数据区
-		if ( data_filler( buffer + ncb->tcp_tst_.cb_, cb, par ) < 0 ) {
-			break;
+		if ( data_filler ) {
+			if ( data_filler( buffer + ncb->tcp_tst_.cb_, cb, par ) < 0 ) {
+				break;
+			}
+		} else {
+			if ( tcp_maker( buffer + ncb->tcp_tst_.cb_, cb, par ) < 0 ) {
+				break;
+			}
 		}
 
 		// 分配包
