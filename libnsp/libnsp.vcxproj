@@ -129,7 +129,7 @@
       <OutputFile>$(OutDir)libnsp.a</OutputFile>
     </Lib>
     <PostBuildEvent>
-      <Command>copy "$(OutDir)libnsp.a" "$(SolutionDir)..\libnsp\lib\"</Command>
+      <Command>copy "$(OutDir)libnsp.a" "$(SolutionDir)..\libnsp\lib\libnsp.d"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -149,7 +149,7 @@
       <OutputFile>$(OutDir)libnsp.a</OutputFile>
     </Lib>
     <PostBuildEvent>
-      <Command>copy "$(OutDir)libnsp.a" "$(SolutionDir)..\libnsp\lib\"</Command>
+      <Command>copy "$(OutDir)libnsp.a" "$(SolutionDir)..\libnsp\lib\libnsp.d"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
