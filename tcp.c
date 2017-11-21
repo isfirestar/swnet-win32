@@ -202,7 +202,12 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 
 		// 总包长度 = 用户数据长度 + 底层协议长度
 		total_packet_length = user_size + ncb->tcp_tst_.cb_;
-
+		
+		// 包长度超过最大发送长度， 有可能是恶意攻击
+		if (total_packet_length > TCP_MAXIMUM_PACKET_SIZE) {
+			return -1;
+		}
+		
 		// 大包，不存在后续解析， 直接全拷贝后标记为大包等待状态， 从原始缓冲区开始投递IRP
 		if ( total_packet_length > TCP_RECV_BUFFER_SIZE ) {
 			if ( ncb_mark_lb( ncb, total_packet_length, current_usefule_size, ( char * ) packet->ori_buffer_ + current_parse_offset ) < 0 ) {
@@ -357,7 +362,7 @@ void tcp_unload( objhld_t h, void * user_buffer )
 		packet = list_first_entry( &ncb->tcp_waitting_list_head_, packet_t, pkt_lst_entry_ );
 		list_del( &packet->pkt_lst_entry_ );
 		if ( packet ) {
-			free_packet( packet );
+			freepkt( packet );
 		}
 
 		// 递减全局的发送缓冲个数
@@ -582,7 +587,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 	h = packet->link;
 
 	// 释放本包
-	free_packet( packet );
+	freepkt( packet );
 	objdefr( h );
 }
 
@@ -638,7 +643,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	if ( retval < 0 ) {
 		objclos(ncb->link);
-		free_packet( packet );
+		freepkt( packet );
 	}
 
 	objdefr( ncb->link );
@@ -696,14 +701,14 @@ void tcp_dispatch_io_connected(packet_t * packet){
 	} while ( 0 );
 
 	if (packet){
-		free_packet(packet);
+		freepkt(packet);
 	}
 	objdefr(ncb->link);
 	
 	if (optval < 0){
 		objclos(ncb->link);
 		if (packet_rcv){
-			free_packet(packet_rcv);
+			freepkt(packet_rcv);
 		}
 	}
 }
@@ -790,7 +795,7 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 		case kConnect: 
 			{
 				objclos(packet->link);
-				free_packet( packet );
+				freepkt( packet );
 			}
 			break;
 
@@ -803,7 +808,7 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 		case kSyn:
 			{
 				objclos(packet->accepted_link);
-				free_packet( packet );
+				freepkt( packet );
 
 				ncb = tcprefr(packet->link);
 				if ( ncb ) {
@@ -970,7 +975,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 
 	} while ( FALSE );
 
-	free_packet( packet );
+	freepkt( packet );
 	objdefr( ncb->link );
 	return -1;
 }
@@ -1012,7 +1017,7 @@ int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 
 	} while (FALSE);
 
-	free_packet(packet);
+	freepkt(packet);
 	objdefr(ncb->link);
 	return -1;
 }

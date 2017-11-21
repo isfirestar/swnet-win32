@@ -75,7 +75,7 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 	return -1;
 }
 
-void free_packet( packet_t * packet )
+void freepkt( packet_t * packet )
 {
 	if ( !packet ) return;
 
@@ -301,7 +301,7 @@ int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port )
 		ncb_report_debug_information(ncb, "syscall WSASendTo failed,error code=%u", WSAGetLastError() );
 	}
 
-	free_packet( packet );
+	freepkt( packet );
 	objdefr( ncb->link );
 	return retval;
 }

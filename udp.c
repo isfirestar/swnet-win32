@@ -76,7 +76,7 @@ static void udp_dispatch_io_recv( packet_t *packet )
 static void udp_dispatch_io_send( packet_t * packet )
 {
 	if ( packet ) {
-		free_packet( packet );
+		freepkt( packet );
 		packet = NULL;
 	}
 }
@@ -277,7 +277,7 @@ static packet_t **udp_allocate_recv_array( objhld_t h, int cnt )
 	// 申请过程发生错误， 应该会滚并释放所有的包内存
 	if ( retval < 0 ) {
 		for ( i = 0; i < cnt; i++ ) {
-			free_packet( pkt_array[i] );
+			freepkt( pkt_array[i] );
 		}
 		free( pkt_array );
 		return NULL;
@@ -291,7 +291,7 @@ void udp_shutdown( packet_t * packet )
 {
 	if ( packet ) {
 		objclos(packet->link);
-		free_packet( packet );
+		freepkt( packet );
 	}
 }
 
@@ -660,7 +660,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 		}
 
 		// 同步完成后自动释放包， 但包中的 grp 只能交由 xx_release_grp 进行释放
-		free_packet( packet );
+		freepkt( packet );
 	} while ( FALSE );
 
 	objdefr( ncb->link );

@@ -63,8 +63,14 @@ int ncb_mark_lb( ncb_t *ncb, int cb, int current_size, void * source )
 		ncb_report_debug_information( ncb, "fail to allocate memory for ncb->lb_data_, request size=%u", cb );
 		return -1;
 	}
-	memcpy( ncb->lb_data_, source, current_size );
+	
 	ncb->lb_cpy_offset_ = current_size;
+	if (0 == current_size) {
+		return 0;
+	}
+	
+	/* 申请的同时有数据需要拷贝 */
+	memcpy( ncb->lb_data_, source, ncb->lb_cpy_offset_ );
 	return 0;
 }
 

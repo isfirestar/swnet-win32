@@ -55,7 +55,7 @@ typedef struct _NCC_PACKET {
 }packet_t;
 
 int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t type, int cbSize, enum page_style_t page_style, packet_t **output_packet );
-void free_packet( packet_t * packet );
+void freepkt( packet_t * packet );
 
 int asio_udp_recv( packet_t * packet );
 int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port );
