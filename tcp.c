@@ -200,13 +200,13 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 			return -1;
 		}
 
-		// 总包长度 = 用户数据长度 + 底层协议长度
-		total_packet_length = user_size + ncb->tcp_tst_.cb_;
-		
-		// 包长度超过最大发送长度， 有可能是恶意攻击
-		if (total_packet_length > TCP_MAXIMUM_PACKET_SIZE) {
+		/* 如果用户数据长度超出最大容忍长度，则直接报告为错误, 有可能是恶意攻击 */
+		if (user_size > TCP_MAXIMUM_PACKET_SIZE) {
 			return -1;
 		}
+
+		// 总包长度 = 用户数据长度 + 底层协议长度
+		total_packet_length = user_size + ncb->tcp_tst_.cb_;
 		
 		// 大包，不存在后续解析， 直接全拷贝后标记为大包等待状态， 从原始缓冲区开始投递IRP
 		if ( total_packet_length > TCP_RECV_BUFFER_SIZE ) {
