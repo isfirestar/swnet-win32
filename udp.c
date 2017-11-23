@@ -236,7 +236,7 @@ static objhld_t udp_allocate_object(const udp_cinit_t *ctx) {
 	objhld_t h;
 	int retval;
 
-	h = objallo( (int)sizeof( ncb_t ), &objentry, &udp_unload, NULL, 0 );
+	h = objallo( (int)sizeof( ncb_t ), NULL, &udp_unload, NULL, 0 );
 	if ( h < 0 ) {
 		return -1;
 	}

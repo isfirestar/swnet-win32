@@ -383,7 +383,7 @@ objhld_t tcp_allocate_object(const tcp_cinit_t *ctx) {
 	objhld_t h;
 	int retval;
 
-	h = objallo( (int)sizeof( ncb_t ), &objentry, &tcp_unload, NULL, 0 );
+	h = objallo( (int)sizeof( ncb_t ), NULL, &tcp_unload, NULL, 0 );
 	if ( h < 0 ) {
 		return -1;
 	}
