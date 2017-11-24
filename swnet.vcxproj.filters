@@ -45,25 +45,13 @@
     <ClInclude Include="..\libnsp\icom\avltree.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\libnsp\icom\base64.h">
-      <Filter>icom</Filter>
-    </ClInclude>
     <ClInclude Include="..\libnsp\icom\clist.h">
       <Filter>icom</Filter>
     </ClInclude>
     <ClInclude Include="..\libnsp\icom\compiler.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="..\libnsp\icom\crc32.h">
-      <Filter>icom</Filter>
-    </ClInclude>
-    <ClInclude Include="..\libnsp\icom\des.h">
-      <Filter>icom</Filter>
-    </ClInclude>
     <ClInclude Include="..\libnsp\icom\logger.h">
-      <Filter>icom</Filter>
-    </ClInclude>
-    <ClInclude Include="..\libnsp\icom\md5.h">
       <Filter>icom</Filter>
     </ClInclude>
     <ClInclude Include="..\libnsp\icom\nis.h">
@@ -94,6 +82,9 @@
       <Filter>icom</Filter>
     </ClInclude>
     <ClInclude Include="..\libnsp\icom\posix_wait.h">
+      <Filter>icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libnsp\icom\hash.h">
       <Filter>icom</Filter>
     </ClInclude>
   </ItemGroup>

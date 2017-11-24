@@ -18,19 +18,7 @@
     <ClCompile Include="..\..\libnsp\com\avltree.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\libnsp\com\base64.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\libnsp\com\crc32.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\libnsp\com\des.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\libnsp\com\logger.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\libnsp\com\md5.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\libnsp\com\object.c">
@@ -54,12 +42,12 @@
     <ClCompile Include="..\..\libnsp\com\posix_wait.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\hash.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\libnsp\icom\avltree.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\base64.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\libnsp\icom\clist.h">
@@ -68,16 +56,7 @@
     <ClInclude Include="..\..\libnsp\icom\compiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\crc32.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\des.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\libnsp\icom\logger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\libnsp\icom\md5.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\libnsp\icom\nis.h">
@@ -108,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\libnsp\icom\posix_wait.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\hash.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

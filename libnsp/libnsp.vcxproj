@@ -20,11 +20,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\libnsp\com\avltree.c" />
-    <ClCompile Include="..\..\libnsp\com\base64.c" />
-    <ClCompile Include="..\..\libnsp\com\crc32.c" />
-    <ClCompile Include="..\..\libnsp\com\des.c" />
+    <ClCompile Include="..\..\libnsp\com\hash.c" />
     <ClCompile Include="..\..\libnsp\com\logger.c" />
-    <ClCompile Include="..\..\libnsp\com\md5.c" />
     <ClCompile Include="..\..\libnsp\com\object.c" />
     <ClCompile Include="..\..\libnsp\com\posix_ifos.c" />
     <ClCompile Include="..\..\libnsp\com\posix_naos.c" />
@@ -35,13 +32,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\libnsp\icom\avltree.h" />
-    <ClInclude Include="..\..\libnsp\icom\base64.h" />
     <ClInclude Include="..\..\libnsp\icom\clist.h" />
     <ClInclude Include="..\..\libnsp\icom\compiler.h" />
-    <ClInclude Include="..\..\libnsp\icom\crc32.h" />
-    <ClInclude Include="..\..\libnsp\icom\des.h" />
+    <ClInclude Include="..\..\libnsp\icom\hash.h" />
     <ClInclude Include="..\..\libnsp\icom\logger.h" />
-    <ClInclude Include="..\..\libnsp\icom\md5.h" />
     <ClInclude Include="..\..\libnsp\icom\nis.h" />
     <ClInclude Include="..\..\libnsp\icom\nisdef.h" />
     <ClInclude Include="..\..\libnsp\icom\object.h" />
