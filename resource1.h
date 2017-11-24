@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by swnet.rc
+// Used by nshost.rc
 
 // Next default values for new objects
 // 

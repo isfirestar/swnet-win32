@@ -87,13 +87,13 @@
     <ClInclude Include="..\libnsp\icom\hash.h">
       <Filter>icom</Filter>
     </ClInclude>
+    <ClInclude Include="resource1.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{e9175f53-937c-4e33-8219-e288fba0caad}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Head Files">
-      <UniqueIdentifier>{12651b28-2e80-4568-9b42-8e56d040615b}</UniqueIdentifier>
     </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{a16707b6-a684-4b4b-acaa-1992ace8f714}</UniqueIdentifier>
@@ -101,10 +101,18 @@
     <Filter Include="icom">
       <UniqueIdentifier>{a86518f7-d731-46e5-adfb-2001dcb9d56c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Head Files">
+      <UniqueIdentifier>{12651b28-2e80-4568-9b42-8e56d040615b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="nshost.def">
       <Filter>Resource Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="nshost.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
