@@ -99,24 +99,6 @@ void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 	}
 }
 
-void so_dispatch_io_error( OVERLAPPED *pOvlp )
-{
-	packet_t * packet = ( packet_t * ) pOvlp;
-	if ( packet ) {
-		switch ( packet->proto_type_ ) {
-			case kProto_UDP:
-				udp_shutdown( packet );
-				break;
-			case kProto_TCP:
-				tcp_shutdwon_by_packet( packet );
-				break;
-			default:
-				os_dbg_error( "unknown packet protocol type [%u] dispatch to network.", packet->proto_type_ );
-				break;
-		}
-	}
-}
-
 int so_asio_count()
 {
 	int iocp_th_cnt;

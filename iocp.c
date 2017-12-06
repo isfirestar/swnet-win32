@@ -45,7 +45,7 @@ static uint32_t __stdcall iocp_thread_routine( void * p )
 				If *lpOverlapped is not NULL and the function dequeues a completion packet for a failed I/O operation from the completion port, 
 				the function stores information about the failed operation in the variables pointed to by lpNumberOfBytes, lpCompletionKey, and lpOverlapped. 
 				*/
-				so_dispatch_io_error( ovlp );	// 投递处理IO错误
+				so_dispatch_io_event( ovlp, bytes_transfered );		
 			} else {
 				/*
 				If *lpOverlapped is NULL, the function did not dequeue a completion packet from the completion port

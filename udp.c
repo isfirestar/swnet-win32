@@ -95,7 +95,7 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		return;
 	}
 
-	os_dbg_warn("IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
+	os_dbg_warn("udp io exception on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
 
 	// 回调通知异常事件
 	c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
@@ -110,7 +110,13 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	c_data.e.Exception.ErrorCode = status;
 	ncb_callback( ncb, &c_event, ( void * ) &c_data );
 
-	// 回收包内存
+   /*
+	*  这里没有对 STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE 状态做过滤
+	*  发生过一个暂时未理解的现象. (对端均未绑定) 向 10.10.100.36 发包，kRecv 引发STATUS_PORT_UNREACHABLE, 向其他IP均不会
+	*
+	*  任何异常都关闭UDP对象
+	*  发生上面的情况如果没有关闭对象， 也会导致 kRecv 的包耗尽而无法再接收数据
+	*/
 	udp_shutdown( packet );
 }
 
@@ -290,22 +296,22 @@ static packet_t **udp_allocate_recv_array( objhld_t h, int cnt )
 void udp_shutdown( packet_t * packet )
 {
 	if ( packet ) {
-		objclos(packet->link);
+		objclos( packet->link );
 		freepkt( packet );
 	}
 }
 
 void udp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 {
-	// 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接
-	if ( 0 == packet->size_for_translation_ ) {
-		udp_shutdown( packet );
-		return;
-	}
-
 	// 进行IO结果判定， 如果IO失败， 应该通过回调的方式通告调用线程
 	if ( !NT_SUCCESS( status ) ) {
 		udp_dispatch_io_exception( packet, status );
+		return;
+	}
+
+	// 状态没有反馈错误, 但是交换字节长度为0， 此对象不应该继续存在
+	if ( 0 == packet->size_for_translation_ ) {
+		udp_shutdown( packet );
 		return;
 	}
 
