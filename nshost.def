@@ -39,3 +39,4 @@ EXPORTS
 	nis_getver
 	nis_gethost
 	nis_lgethost
+	nis_checr

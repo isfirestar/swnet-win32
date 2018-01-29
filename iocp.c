@@ -1,6 +1,7 @@
 ﻿#include "network.h"
 #include "iocp.h"
-
+#include "mxx.h"
+#include "posix_ifos.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define IOCP_INVALID_SIZE_TRANSFER			(0xFFFFFFFF)
@@ -35,6 +36,7 @@ static uint32_t __stdcall iocp_thread_routine( void * p )
 	LPOVERLAPPED ovlp = NULL;
 	BOOL successful;
 
+	nis_call_ecr("IO Thread Startup.LWP:%u", posix__gettid());
 	while ( TRUE ) {
 		ovlp = NULL;
 		successful = GetQueuedCompletionStatus( __iocp->iocp_port_, &bytes_transfered, &completion_key, &ovlp, INFINITE );
