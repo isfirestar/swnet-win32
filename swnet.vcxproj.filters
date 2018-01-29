@@ -90,6 +90,9 @@
     <ClInclude Include="resource1.h">
       <Filter>Resource Files</Filter>
     </ClInclude>
+    <ClInclude Include="mxx.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">

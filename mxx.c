@@ -1,6 +1,8 @@
 #include "network.h"
 #include "ncb.h"
 #include "packet.h"
+#include "mxx.h"
+#include "posix_string.h"
 
 /*++
 	For a connectionless socket (for example, type SOCK_DGRAM),
@@ -168,4 +170,39 @@ char * __stdcall nis_lgethost( char *name, int cb ) {
 		return NULL;
 	}
 	return name;
+}
+
+/* manage ECR and it's calling */
+static nis_event_callback_t current_ecr = NULL;
+
+nis_event_callback_t __stdcall nis_checr( const nis_event_callback_t ecr ) {
+	if ( !ecr ) {
+		InterlockedExchangePointer( (volatile PVOID *)&current_ecr, NULL );
+		return NULL;
+	}
+	return InterlockedExchangePointer( ( volatile PVOID * )&current_ecr, ecr );
+}
+
+void nis_call_ecr( const char *fmt, ... ) {
+	nis_event_callback_t ecr = NULL, old;
+	va_list ap;
+	char logstr[128];
+	int retval;
+
+	if ( !current_ecr ) {
+		return;
+	}
+
+	va_start( ap, fmt );
+	retval = posix__vsprintf( logstr, cchof( logstr ), fmt, ap );
+	va_end( ap );
+	if ( retval <= 0 ) {
+		return;
+	}
+	logstr[retval] = 0;
+
+	old = InterlockedExchangePointer( ( volatile PVOID * ) &ecr, current_ecr );
+	if ( ecr && !old ) {
+		ecr( logstr, NULL, 0 );
+	}
 }

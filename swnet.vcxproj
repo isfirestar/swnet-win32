@@ -241,6 +241,7 @@
     <ClInclude Include="..\libnsp\icom\posix_time.h" />
     <ClInclude Include="..\libnsp\icom\posix_wait.h" />
     <ClInclude Include="iocp.h" />
+    <ClInclude Include="mxx.h" />
     <ClInclude Include="ncb.h" />
     <ClInclude Include="network.h" />
     <ClInclude Include="os.h" />
