@@ -252,7 +252,7 @@ int tcp_update_opts(ncb_t *ncb) {
 
     ncb_set_window_size(ncb, SO_RCVBUF, TCP_BUFFER_SIZE );
     ncb_set_window_size(ncb, SO_SNDBUF, TCP_BUFFER_SIZE );
-    ncb_set_linger(ncb, 0, 1);
+    ncb_set_linger(ncb, 1, 0);
     ncb_set_keepalive(ncb, 1);
      
     tcp_set_nodelay(ncb, 1);   /* 为保证小包效率， 禁用 Nginx 算法 */

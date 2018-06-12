@@ -130,7 +130,7 @@ static int udp_update_opts(ncb_t *ncb) {
 
     ncb_set_window_size(ncb, SO_RCVBUF, RECV_BUFFER_SIZE);
     ncb_set_window_size(ncb, SO_SNDBUF, SEND_BUFFER_SIZE);
-    ncb_set_linger(ncb, 0, 1);
+    ncb_set_linger(ncb, 1, 0);
 	return 0;
 }
 
