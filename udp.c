@@ -86,6 +86,7 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	nis_event_t c_event;
 	udp_data_t c_data;
 	ncb_t *ncb;
+	int close = 1;
 
 	if ( !packet ) return;
 
@@ -104,20 +105,29 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		c_data.e.Exception.SubEvent = EVT_SENDDATA;
 	} else if ( kRecv == packet->type_ ) {
 		c_data.e.Exception.SubEvent = EVT_RECEIVEDATA;
+
+		/* 对 STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE 状态做过滤
+		   避免这几种 ICMP PORT UNREACHABLE 导致UDP收包PENDING耗竭， 这里再次投递kRecv请求
+		   并且不关闭这个链接
+		 */
+		if (status == STATUS_PORT_UNREACHABLE || 
+			status == STATUS_PROTOCOL_UNREACHABLE || 
+			status == STATUS_HOST_UNREACHABLE) {
+			packet->size_for_translation_ = 0;
+			asio_udp_recv(packet);
+			close = 0;
+		}
 	} else {
 		;
 	}
 	c_data.e.Exception.ErrorCode = status;
 	ncb_callback( ncb, &c_event, ( void * ) &c_data );
+	objdefr(ncb->link);
 
-   /*
-	*  这里没有对 STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE 状态做过滤
-	*  发生过一个暂时未理解的现象. (对端均未绑定) 向 10.10.100.36 发包，kRecv 引发STATUS_PORT_UNREACHABLE, 向其他IP均不会
-	*
-	*  任何异常都关闭UDP对象
-	*  发生上面的情况如果没有关闭对象， 也会导致 kRecv 的包耗尽而无法再接收数据
-	*/
-	udp_shutdown( packet );
+   /* 任何其他异常都关闭UDP对象 */
+	if (close) {
+		udp_shutdown(packet);
+	}
 }
 
 static int udp_update_opts(ncb_t *ncb) {
