@@ -201,7 +201,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		}
 
 		/* 如果用户数据长度超出最大容忍长度，则直接报告为错误, 有可能是恶意攻击 */
-		if (user_size > TCP_MAXIMUM_PACKET_SIZE) {
+		if (user_size > TCP_MAXIMUM_PACKET_SIZE || user_size < 0) {
 			return -1;
 		}
 
