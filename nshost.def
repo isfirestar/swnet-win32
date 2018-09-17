@@ -40,3 +40,5 @@ EXPORTS
 	nis_gethost
 	nis_lgethost
 	nis_checr
+	nis_setmask
+	nis_getmask

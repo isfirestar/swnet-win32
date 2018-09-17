@@ -139,7 +139,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libnsp.a</AdditionalDependencies>
+      <AdditionalDependencies>libnsp.d</AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)pdb\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>

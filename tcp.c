@@ -226,8 +226,14 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		// 回调到用户例程, 使用其实地址累加解析偏移， 直接赋予回调例程的结构指针， 因为const限制， 调用线程不应该刻意修改该串的值
 		c_event.Ln.Tcp.Link = (HTCPLINK)ncb->link;
 		c_event.Event = EVT_RECEIVEDATA;
-		c_data.e.Packet.Size = user_size;
-		c_data.e.Packet.Data = ( const char * ) ( ( char * ) packet->ori_buffer_ + current_parse_offset + ncb->tcp_tst_.cb_ );
+		if (ncb->optmask & LINK_MASK_FULL_CALLBACK) {
+			c_data.e.Packet.Size = user_size + ncb->tcp_tst_.cb_;
+			c_data.e.Packet.Data = (const char *)((char *)packet->ori_buffer_ + current_parse_offset);
+		} else {
+			c_data.e.Packet.Size = user_size;
+			c_data.e.Packet.Data = (const char *)((char *)packet->ori_buffer_ + current_parse_offset + ncb->tcp_tst_.cb_);
+		}
+		
 		ncb_callback( ncb, &c_event, &c_data );
 
 		// 调整当前解析长度
@@ -1077,6 +1083,7 @@ int __stdcall tcp_write( HTCPLINK lnk, int cb, int( __stdcall *data_filler )( vo
 	packet_t *packet;
 	int total_packet_length;
 	int retval;
+	int(__stdcall *amaker)(void *, int, void *);
 
 	if ( INVALID_HTCPLINK == lnk || cb <= 0 || cb >= TCP_MAXIMUM_PACKET_SIZE || !data_filler ) return -1;
 
@@ -1097,29 +1104,39 @@ int __stdcall tcp_write( HTCPLINK lnk, int cb, int( __stdcall *data_filler )( vo
 			break;
 		}
 
-		// 未制定解析和构建下层协议的处理例程
-		if ( !ncb->tcp_tst_.builder_ || !ncb->tcp_tst_.parser_ ) {
-			break;
-		}
-		total_packet_length = ncb->tcp_tst_.cb_ + cb;
-
-
-		if ( NULL == ( buffer = ( char * ) malloc( total_packet_length ) ) ) {
+		// 解析例程必须指定
+		if (!ncb->tcp_tst_.parser_ ) {
 			break;
 		}
 
-		// 协议构建例程负责构建协议头
-		if ( ncb->tcp_tst_.builder_( buffer, cb ) < 0 ) {
-			break;
+		/* user data filler */
+		amaker = data_filler;
+		if (!amaker) {
+			amaker = &tcp_maker;
 		}
 
-		// 用户负责填充本次发送的数据区
-		if ( data_filler ) {
-			if ( data_filler( buffer + ncb->tcp_tst_.cb_, cb, par ) < 0 ) {
+		if (ncb->tcp_tst_.builder_) {
+			total_packet_length = ncb->tcp_tst_.cb_ + cb;
+			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
+				break;
+			}
+
+			// 协议构建例程负责构建协议头
+			if (ncb->tcp_tst_.builder_(buffer, cb) < 0) {
+				break;
+			}
+
+			if (amaker(buffer + ncb->tcp_tst_.cb_, cb, par) < 0) {
 				break;
 			}
 		} else {
-			if ( tcp_maker( buffer + ncb->tcp_tst_.cb_, cb, par ) < 0 ) {
+			total_packet_length = cb;
+			// 没有指定下层协议的构建例程，则认为传入数据已经完成了下层协议的构建
+			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
+				break;
+			}
+
+			if (amaker(buffer, cb, par) < 0) {
 				break;
 			}
 		}

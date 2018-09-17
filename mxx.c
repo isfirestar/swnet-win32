@@ -206,3 +206,37 @@ void nis_call_ecr( const char *fmt, ... ) {
 		ecr( logstr, NULL, 0 );
 	}
 }
+
+int __stdcall nis_setmask(HTCPLINK lnk, int mask)
+{
+	ncb_t *ncb;
+	objhld_t hld = (objhld_t)lnk;
+
+	ncb = objrefr(hld);
+	if (!ncb) {
+		return -EEXIST;
+	}
+
+	ncb->optmask = mask;
+
+	objdefr(hld);
+	return 0;
+}
+
+int __stdcall nis_getmask(HTCPLINK lnk, int *mask)
+{
+	ncb_t *ncb;
+	objhld_t hld = (objhld_t)lnk;
+
+	ncb = objrefr(hld);
+	if (!ncb) {
+		return -1;
+	}
+
+	if (mask) {
+		*mask = ncb->optmask;
+	}
+
+	objdefr(hld);
+	return 0;
+}

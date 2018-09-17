@@ -35,6 +35,8 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
      *  */
     int iptos;
 
+	int optmask;
+
 	struct {												// 大包解读(大于64KB但是不足50MB的TCP数据包)
 		char*					lb_data_;					// large block data
 		int						lb_cpy_offset_;				// 当前已经赋值的大包数据段偏移
