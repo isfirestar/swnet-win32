@@ -4,6 +4,7 @@
 #include "iocp.h"
 
 #include <assert.h>
+#include <mstcpip.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define TCP_ACCEPT_EXTENSION_SIZE					( 1024 )
@@ -27,8 +28,45 @@ typedef struct _TCP_INIT_CONTEXT {
 static long __tcp_global_sender_cached_cnt = 0; // TCP 全局缓存的发送包个数(未发出的链表长度)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+typedef enum _TCPSTATE {
+	TCPSTATE_CLOSED,
+	TCPSTATE_LISTEN,
+	TCPSTATE_SYN_SENT,
+	TCPSTATE_SYN_RCVD,
+	TCPSTATE_ESTABLISHED,
+	TCPSTATE_FIN_WAIT_1,
+	TCPSTATE_FIN_WAIT_2,
+	TCPSTATE_CLOSE_WAIT,
+	TCPSTATE_CLOSING,
+	TCPSTATE_LAST_ACK,
+	TCPSTATE_TIME_WAIT,
+	TCPSTATE_MAX
+} TCPSTATE;
+
+typedef struct _TCP_INFO_v0 {
+	TCPSTATE State;
+	ULONG    Mss;
+	ULONG64  ConnectionTimeMs;
+	BOOLEAN  TimestampsEnabled;
+	ULONG    RttUs;
+	ULONG    MinRttUs;
+	ULONG    BytesInFlight;
+	ULONG    Cwnd;
+	ULONG    SndWnd;
+	ULONG    RcvWnd;
+	ULONG    RcvBuf;
+	ULONG64  BytesOut;
+	ULONG64  BytesIn;
+	ULONG    BytesReordered;
+	ULONG    BytesRetrans;
+	ULONG    FastRetrans;
+	ULONG    DupAcksIn;
+	ULONG    TimeoutEpisodes;
+	UCHAR    SynRetrans;
+} TCP_INFO_v0, *PTCP_INFO_v0;
+
 void tcp_shutdwon_by_packet( packet_t * packet );
-static int tcp_save_info( ncb_t *ncb );
+static int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp);
 static int tcp_setmss( ncb_t *ncb, int mss );
 static int tcp_getmss( ncb_t *ncb );
 static int tcp_set_nodelay( ncb_t *ncb, int set );
@@ -262,7 +300,6 @@ int tcp_update_opts(ncb_t *ncb) {
     ncb_set_keepalive(ncb, 1);
      
     tcp_set_nodelay(ncb, 1);   /* 为保证小包效率， 禁用 Nginx 算法 */
-    tcp_save_info(ncb);
     
     return 0;
 }
@@ -1260,8 +1297,21 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 	return retval;
 }
 
-int tcp_save_info(ncb_t *ncb) {
-    return -1;
+//  Minimum supported client
+//	Windows 10, version 1703[desktop apps only]
+//	Minimum supported server
+//	Windows Server 2016[desktop apps only]
+int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp) {
+	//WSAIoctl(ncb->sockfd, SIO_TCP_INFO,
+	//	(LPVOID)lpvInBuffer,   // pointer to a DWORD 
+	//	(DWORD)cbInBuffer,    // size, in bytes, of the input buffer
+	//	(LPVOID)lpvOutBuffer,         // pointer to a TCP_INFO_v0 structure
+	//	(DWORD)cbOutBuffer,       // size of the output buffer
+	//	(LPDWORD)lpcbBytesReturned,    // number of bytes returned
+	//	(LPWSAOVERLAPPED)lpOverlapped,   // OVERLAPPED structure
+	//	(LPWSAOVERLAPPED_COMPLETION_ROUTINE)lpCompletionRoutine,  // completion routine
+	//	);
+	return -1;
 }
 
 int tcp_setmss(ncb_t *ncb, int mss) {
