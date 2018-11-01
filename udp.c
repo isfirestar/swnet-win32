@@ -394,7 +394,7 @@ HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ip
 	return ( HUDPLINK ) h;
 }
 
-static int udp_maker( void *data, int cb, void *context ) {
+static int udp_maker( void *data, int cb, const void *context ) {
 	if ( data && cb > 0 && context ) {
 		memcpy( data, context, cb );
 		return 0;
@@ -402,39 +402,113 @@ static int udp_maker( void *data, int cb, void *context ) {
 	return -1;
 }
 
-int __stdcall udp_write( HUDPLINK lnk, int cb, int( __stdcall *data_filler )( void *, int, void * ), void *par, const char* r_ipstr, uint16_t r_port )
+static
+int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const char* r_ipstr, uint16_t r_port)  {
+	int wcb;
+	int offset;
+	struct sockaddr_in addr;
+
+	offset = 0;
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr(r_ipstr);
+	addr.sin_port = htons(r_port);
+
+	while (offset < cb) {
+		wcb = sendto(ncb->sockfd, data + offset, cb - offset, 0, (const struct sockaddr *)&addr, sizeof(struct sockaddr));
+		if (wcb <= 0) {
+			/* interrupt by other operation, continue */
+			if (EINTR == errno) {
+				continue;
+			}
+
+			return RE_ERROR(errno);
+		}
+
+		offset += wcb;
+	}
+
+	return 0;
+}
+
+int __stdcall udp_write(HUDPLINK lnk, int cb, nis_sender_maker_t maker, const void *par, const char* r_ipstr, uint16_t r_port )
 {
+	int retval;
+	ncb_t *ncb;
+	objhld_t hld = (objhld_t)lnk;
+	unsigned char *buffer;
+
+	if (!r_ipstr || (0 == r_port) || (cb <= 0) || (lnk < 0) || (cb > UDP_MAXIMUM_USER_DATA_SIZE)) {
+		return RE_ERROR(EINVAL);
+	}
+
+	ncb = (ncb_t *)objrefr(hld);
+	if (!ncb) {
+		return RE_ERROR(ENOENT);
+	}
+
+	retval = -1;
+	buffer = NULL;
+
+	do {
+		buffer = (unsigned char *)malloc(cb);
+		if (!buffer) {
+			retval = RE_ERROR(ENOMEM);
+			break;
+		}
+
+		if (maker) {
+			if ((*maker)(buffer, cb, par) < 0) {
+				break;
+			}
+		} else{
+			if (udp_maker(buffer, cb, par) < 0) {
+				break;
+			}
+		}
+
+		retval = __udp_tx_single_packet(ncb, buffer, cb, r_ipstr, r_port);
+	} while (0);
+
+	if (buffer) {
+		free(buffer);
+	}
+	objdefr(hld);
+	return retval;
+}
+
+int __stdcall udp_sendto(HUDPLINK lnk, int cb, nis_sender_maker_t maker, const void *par, const char* r_ipstr, uint16_t r_port) {
 	packet_t * packet;
 	char *buffer;
 
-	if ( cb > MTU || cb <= 0 || !data_filler || INVALID_HUDPLINK == lnk || !r_ipstr || 0 == r_port ) {
+	if (cb > MTU || cb <= 0 || INVALID_HUDPLINK == lnk || !r_ipstr || 0 == r_port) {
 		return -1;
 	}
 
-	buffer = ( char * ) malloc( cb );
-	if ( !buffer ) {
+	buffer = (char *)malloc(cb);
+	if (!buffer) {
 		return -1;
 	}
 
-	if ( data_filler ) {
-		if ( data_filler( buffer, cb, par ) < 0 ) {
-			free( buffer );
+	if (maker) {
+		if (maker(buffer, cb, par) < 0) {
+			free(buffer);
 			return -1;
 		}
 	} else {
-		if ( udp_maker( buffer, cb, par ) < 0 ) {
-			free( buffer );
+		if (udp_maker(buffer, cb, par) < 0) {
+			free(buffer);
 			return -1;
 		}
 	}
 
-	if ( allocate_packet( ( objhld_t ) lnk, kProto_UDP, kSend, 0, kNoAccess, &packet ) >= 0 ) {
+	if (allocate_packet((objhld_t)lnk, kProto_UDP, kSend, 0, kNoAccess, &packet) >= 0) {
 		packet->irp_ = packet->ori_buffer_ = buffer;
 		packet->size_for_req_ = cb;
-		return syio_udp_send( packet, r_ipstr, r_port );
+		return syio_udp_send(packet, r_ipstr, r_port);
 	}
 
-	free( buffer );
+	free(buffer);
 	return -1;
 }
 

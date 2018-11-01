@@ -312,15 +312,16 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 	nis_event_t c_event;
 	tcp_data_t c_data;
 
-	if ( !ncb || h < 0|| !ctx ) return -1;
+	if (!ncb || h < 0 || !ctx) {
+		return -1;
+	}
 
+	retval = -1;
 	memset( ncb, 0, sizeof( ncb_t ) );
 
 	do {
-
-		retval = -1;
-
 		ncb_init( ncb, kProto_TCP );
+		ncb_set_callback(ncb, init_ctx->callback_);
 		ncb->link = h;
 
 		ncb->sockfd = so_allocate_asio_socket(SOCK_STREAM, IPPROTO_TCP);
@@ -360,7 +361,6 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		init_ctx->callback_( ( const void * ) &c_event, ( const void * ) &c_data );
 		if (ncb->sockfd > 0) so_close(&ncb->sockfd);
 	} else {
-		ncb_set_callback( ncb, init_ctx->callback_ );
 		c_event.Event = EVT_CREATED;
 		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->link;
 		c_data.e.LinkOption.OptionLink = ( HTCPLINK ) ncb->link;
@@ -384,7 +384,9 @@ void tcp_unload( objhld_t h, void * user_buffer )
 	c_event.Ln.Tcp.Link = ( HTCPLINK ) h;
 	c_event.Event = EVT_PRE_CLOSE;
 	c_data.e.LinkOption.OptionLink = ( HTCPLINK ) h;
-	ncb->tcp_callback_( ( const void * ) &c_event, ( const void * ) &c_data );
+	if (ncb->tcp_callback_) {
+		ncb->tcp_callback_((const void *)&c_event, (const void *)&c_data);
+	}
 
 	// 关闭内部套接字
 	so_close(&ncb->sockfd);
@@ -392,7 +394,9 @@ void tcp_unload( objhld_t h, void * user_buffer )
 	// 处理关闭后事件
 	c_event.Event = EVT_CLOSED;
 	c_data.e.LinkOption.OptionLink = ( HTCPLINK ) h;
-	ncb->tcp_callback_( ( const void * ) &c_event, ( const void * ) &c_data );
+	if (ncb->tcp_callback_) {
+		ncb->tcp_callback_((const void *)&c_event, (const void *)&c_data);
+	}
 
 	// 如果有未完成的大包， 则将大包内存释放
 	ncb_unmark_lb( ncb );
@@ -1105,7 +1109,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	return retval;
 }
 
-static int tcp_maker( void *data, int cb, void *context ) {
+static int STDCALL tcp_maker( void *data, int cb, const void *context ) {
 	if ( data && cb > 0 && context ) {
 		memcpy( data, context, cb );
 		return 0;
@@ -1113,16 +1117,18 @@ static int tcp_maker( void *data, int cb, void *context ) {
 	return -1;
 }
 
-int __stdcall tcp_write( HTCPLINK lnk, int cb, int( __stdcall *data_filler )( void *, int, void * ), void *par )
+int __stdcall tcp_write(HTCPLINK lnk, int cb, nis_sender_maker_t maker, const void *par )
 {
 	char *buffer;
 	ncb_t *ncb;
 	packet_t *packet;
 	int total_packet_length;
 	int retval;
-	int(__stdcall *amaker)(void *, int, void *);
+	nis_sender_maker_t amaker;
 
-	if ( INVALID_HTCPLINK == lnk || cb <= 0 || cb >= TCP_MAXIMUM_PACKET_SIZE || !data_filler ) return -1;
+	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb >= TCP_MAXIMUM_PACKET_SIZE) {
+		return -1;
+	}
 
 	// 全局对延迟发送的数据队列长度进行保护
 	if ( InterlockedIncrement( &__tcp_global_sender_cached_cnt ) >= TCP_MAXIMUM_SENDER_CACHED_CNT ) {
@@ -1147,7 +1153,7 @@ int __stdcall tcp_write( HTCPLINK lnk, int cb, int( __stdcall *data_filler )( vo
 		}
 
 		/* user data filler */
-		amaker = data_filler;
+		amaker = maker;
 		if (!amaker) {
 			amaker = &tcp_maker;
 		}
