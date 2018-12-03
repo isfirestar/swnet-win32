@@ -3,6 +3,15 @@ LIBRARY      "nshost"
 EXPORTS
     ; Explicit exports can go here
 
+	objinit
+	objuninit
+	objallo
+	objallo2
+	objrefr
+	objdefr
+	objreff
+	objclos
+
 	tcp_settst
 	tcp_gettst
 	tcp_init
