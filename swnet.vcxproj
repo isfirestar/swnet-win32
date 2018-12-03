@@ -108,12 +108,14 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libnsp.d</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)pdb\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(Configuration)\$(TargetName).lib</ImportLibrary>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\libnsp\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(OutDir)\$(ProjectName).dll" "$(SolutionDir)bin\$(Configuration)"</Command>
@@ -170,12 +172,14 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>libnsp.a</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(Configuration)\$(TargetName).lib</ImportLibrary>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\libnsp\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(OutDir)\$(ProjectName).dll" "$(SolutionDir)bin\$(Configuration)"</Command>
@@ -215,6 +219,16 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\libnsp\com\avltree.c" />
+    <ClCompile Include="..\libnsp\com\hash.c" />
+    <ClCompile Include="..\libnsp\com\logger.c" />
+    <ClCompile Include="..\libnsp\com\object.c" />
+    <ClCompile Include="..\libnsp\com\posix_ifos.c" />
+    <ClCompile Include="..\libnsp\com\posix_naos.c" />
+    <ClCompile Include="..\libnsp\com\posix_string.c" />
+    <ClCompile Include="..\libnsp\com\posix_thread.c" />
+    <ClCompile Include="..\libnsp\com\posix_time.c" />
+    <ClCompile Include="..\libnsp\com\posix_wait.c" />
     <ClCompile Include="iocp.c" />
     <ClCompile Include="mxx.c" />
     <ClCompile Include="ncb.c" />

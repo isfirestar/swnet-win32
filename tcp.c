@@ -325,7 +325,9 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		ncb->link = h;
 
 		ncb->sockfd = so_allocate_asio_socket(SOCK_STREAM, IPPROTO_TCP);
-		if (ncb->sockfd < 0) break;
+		if (ncb->sockfd < 0) {
+			break;
+		}
 
 		// 如果是远程连接得到的ncb_t, 操作到此完成
 		if ( init_ctx->is_remote_ ) {
@@ -334,7 +336,9 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		}
 
 		// setsockopt 设置套接字参数
-		if ( tcp_update_opts( ncb) < 0 ) break;
+		if (tcp_update_opts(ncb) < 0) {
+			break;
+		}
 
 		// 创建阶段， 无论是否随机网卡，随机端口绑定， 都先行计入本地地址信息
 		// 在执行accept, connect后， 如果是随机端口绑定， 则可以取到实际生效的地址信息
@@ -346,7 +350,9 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		ncb->tcp_usable_sender_cache_ = TCP_BUFFER_SIZE;
 
 		// 将对象绑定到异步IO的完成端口
-		if (iocp_bind(ncb->sockfd) < 0) break;
+		if (iocp_bind(ncb->sockfd) < 0) {
+			break;
+		}
 
 		retval = 0;
 
@@ -919,7 +925,9 @@ HTCPLINK __stdcall tcp_create( tcp_io_callback_t user_callback, const char* l_ip
 {
 	tcp_cinit_t ctx;
 
-	if ( !user_callback ) return INVALID_HTCPLINK;
+	if (!user_callback) {
+		return INVALID_HTCPLINK;
+	}
 
 	if ( !l_ipstr ) {
 		ctx.ip_ = INADDR_ANY;
