@@ -114,10 +114,9 @@ int __stdcall nis_getver( swnet_version_t  *version )
 {
 	if ( !version ) return -1;
 
-	version->procedure_ = 0;
-	version->main_ = 1;
-	version->sub_ = 1;
-	version->leaf_ = 13;
+	version->major_ = 9;
+	version->minor_ = 7;
+	version->revision_ = 3;
 	return 0;
 }
 
