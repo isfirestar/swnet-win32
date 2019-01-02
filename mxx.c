@@ -45,7 +45,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 			ncb->ncb_ctx_size_ = ncb_ctx_size;
 			ctx = ( char * ) malloc( ncb_ctx_size );
 			if ( !ctx ) {
-				ncb_report_debug_information(ncb,  "fail to allocate memory for ncb context, size=%u", ncb_ctx_size );
+				nis_call_ecr("fail to allocate memory for ncb context, size=%u", ncb_ctx_size);
 				retval = -1;
 				break;
 			}
@@ -114,10 +114,9 @@ int __stdcall nis_getver( swnet_version_t  *version )
 {
 	if ( !version ) return -1;
 
-	version->procedure_ = 0;
-	version->main_ = 1;
-	version->sub_ = 1;
-	version->leaf_ = 13;
+	version->major_ = 9;
+	version->minor_ = 7;
+	version->revision_ = 6;
 	return 0;
 }
 

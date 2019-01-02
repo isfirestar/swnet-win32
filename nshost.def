@@ -104,6 +104,8 @@ EXPORTS
 	posix__setpriority_normal
 	posix__setpriority_critical
 	posix__setpriority_realtime
+	posix__setaffinity_process
+	posix__getaffinity_process
 	posix__getnprocs
 	posix__getsysmem
 	posix__getpagesize
@@ -168,6 +170,8 @@ EXPORTS
 	posix__pthread_mutex_unlock
 	posix__pthread_mutex_release
 	posix__pthread_yield
+	posix__pthread_setaffinity
+	posix__pthread_getaffinity
 
 	posix__gettick
 	posix__clock_gettime

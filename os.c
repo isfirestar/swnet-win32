@@ -1,4 +1,5 @@
 #include "os.h"
+#include "mxx.h"
 
 void *
 os_allocate_block(

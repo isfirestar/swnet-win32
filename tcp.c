@@ -2,6 +2,7 @@
 #include "ncb.h"
 #include "packet.h"
 #include "iocp.h"
+#include "mxx.h"
 
 #include <assert.h>
 #include <mstcpip.h>
@@ -264,7 +265,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		// 回调到用户例程, 使用其实地址累加解析偏移， 直接赋予回调例程的结构指针， 因为const限制， 调用线程不应该刻意修改该串的值
 		c_event.Ln.Tcp.Link = (HTCPLINK)ncb->link;
 		c_event.Event = EVT_RECEIVEDATA;
-		if (ncb->optmask & LINK_MASK_FULL_CALLBACK) {
+		if (ncb->optmask & LINKATTR_TCP_FULLY_RECEIVE) {
 			c_data.e.Packet.Size = user_size + ncb->tcp_tst_.cb_;
 			c_data.e.Packet.Data = (const char *)((char *)packet->ori_buffer_ + current_parse_offset);
 		} else {
@@ -309,8 +310,6 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 {
 	tcp_cinit_t *init_ctx = ( tcp_cinit_t * ) ctx;;
 	int retval;
-	nis_event_t c_event;
-	tcp_data_t c_data;
 
 	if (!ncb || h < 0 || !ctx) {
 		return -1;
@@ -359,18 +358,9 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 	} while ( FALSE );
 
 	if ( retval < 0 ) {
-		// 创建过程的失败, 需要生成一个通告异常
-		c_event.Event = EVT_EXCEPTION;
-		c_event.Ln.Tcp.Link = INVALID_HTCPLINK;
-		c_data.e.Exception.SubEvent = EVT_CREATED;
-		c_data.e.Exception.ErrorCode = ( long ) WSAGetLastError();
-		init_ctx->callback_( ( const void * ) &c_event, ( const void * ) &c_data );
-		if (ncb->sockfd > 0) so_close(&ncb->sockfd);
-	} else {
-		c_event.Event = EVT_CREATED;
-		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->link;
-		c_data.e.LinkOption.OptionLink = ( HTCPLINK ) ncb->link;
-		ncb_callback( ncb, &c_event, &c_data );
+		if (ncb->sockfd > 0)  {
+			so_close(&ncb->sockfd);
+		}
 	}
 
 	return retval;
@@ -515,7 +505,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		status = (NTSTATUS)WSAIoctl(ncb_accepted->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_GET_ACCEPTEX_SOCK_ADDRS,
 			sizeof( GUID_GET_ACCEPTEX_SOCK_ADDRS ), &WSAGetAcceptExSockAddrs, sizeof( WSAGetAcceptExSockAddrs ), &cb_ioctl, NULL, NULL );
 		if ( !NT_SUCCESS( status ) ) {
-			ncb_report_debug_information(ncb_accepted, "syscall WSAIoctl for GUID_GET_ACCEPTEX_SOCK_ADDRS failed,NTSTATUS=0x%08X", status );
+			nis_call_ecr("syscall WSAIoctl for GUID_GET_ACCEPTEX_SOCK_ADDRS failed,NTSTATUS=0x%08X", status);
 			return -1;
 		}
 	}
@@ -545,7 +535,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		}
 	}
 
-	ncb_report_debug_information(ncb_accepted, "syscall setsockopt failed( SO_UPDATE_ACCEPT_CONTEXT), error code=%u", WSAGetLastError() );
+	nis_call_ecr("syscall setsockopt failed(SO_UPDATE_ACCEPT_CONTEXT), error code = %u", WSAGetLastError() );
 	return -1;
 }
 
@@ -1101,7 +1091,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 
 		retval = listen(ncb->sockfd, block);
 		if ( retval < 0 ) {
-			ncb_report_debug_information(ncb, "syscall listen failed,error code=%u", WSAGetLastError() );
+			nis_call_ecr("syscall listen failed,error code=%u", WSAGetLastError());
 			break;
 		}
 
@@ -1279,7 +1269,7 @@ int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int
 	if ( kProto_TCP == ncb->proto_type_ ) {
 		retval = setsockopt(ncb->sockfd, level, opt, val, len);
 		if ( retval < 0 ) {
-			ncb_report_debug_information(ncb, "syscall setsockopt failed,error code=%u", WSAGetLastError() );
+			nis_call_ecr("syscall setsockopt failed,error code=%u", WSAGetLastError());
 		}
 	}
 
@@ -1303,7 +1293,7 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 	if ( kProto_TCP == ncb->proto_type_ ) {
 		retval = getsockopt(ncb->sockfd, level, opt, OptVal, len);
 		if ( retval < 0 ) {
-			ncb_report_debug_information(ncb, "syscall failed getsockopt ,error code=%u", WSAGetLastError() );
+			nis_call_ecr("syscall failed getsockopt ,error code=%u", WSAGetLastError());
 		}
 	}
 

@@ -1,6 +1,8 @@
 #include "network.h"
 #include "ncb.h"
 
+#include "mxx.h"
+
 #include <assert.h>
 
 /*++
@@ -60,7 +62,7 @@ int ncb_mark_lb( ncb_t *ncb, int cb, int current_size, void * source )
 	ncb->lb_length_ = cb;
 	ncb->lb_data_ = ( char * ) malloc( ncb->lb_length_ );
 	if ( !ncb->lb_data_ ) {
-		ncb_report_debug_information( ncb, "fail to allocate memory for ncb->lb_data_, request size=%u", cb );
+		nis_call_ecr( "fail to allocate memory for ncb->lb_data_, request size=%u", cb );
 		return -1;
 	}
 	
@@ -88,35 +90,6 @@ void ncb_unmark_lb( ncb_t *ncb )
 		
 		ncb->lb_length_ = 0;
 	}
-}
-
-void ncb_report_debug_information(ncb_t *ncb, const char *fmt,...) {
-    udp_data_t c_data;
-    nis_event_t c_event;
-    char logstr[128];
-    va_list ap;
-    int retval;
-    
-    if (!ncb || !fmt) {
-        return;
-    }
-
-    c_event.Ln.Udp.Link = ncb->sockfd;
-    c_event.Event = EVT_DEBUG_LOG;
-   
-    va_start(ap, fmt);
-    retval = vsprintf_s(logstr, cchof(logstr), fmt, ap);
-    va_end(ap);
-    
-    if (retval <= 0) {
-        return;
-    }
-    logstr[retval] = 0;
-    
-    c_data.e.DebugLog.logstr = &logstr[0];
-    if (ncb->tcp_callback_) {
-        ncb->tcp_callback_(&c_event, &c_data);
-    }
 }
 
 int ncb_set_rcvtimeo(ncb_t *ncb, struct timeval *timeo){

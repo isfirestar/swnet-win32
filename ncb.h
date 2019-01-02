@@ -69,8 +69,6 @@ int ncb_mark_lb( ncb_t *ncb, int Size, int CurrentSize, void * SourceData );
 extern
 void ncb_unmark_lb( ncb_t *ncb );
 
-extern
-void ncb_report_debug_information(ncb_t *ncb, const char *fmt,...);
 
 extern
 int ncb_set_rcvtimeo(ncb_t *ncb, struct timeval *timeo);

@@ -2,6 +2,7 @@
 #include "ncb.h"
 #include "packet.h"
 #include "iocp.h"
+#include "mxx.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef struct _udp_cinit {
@@ -83,8 +84,6 @@ static void udp_dispatch_io_send( packet_t * packet )
 
 static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 {
-	nis_event_t c_event;
-	udp_data_t c_data;
 	ncb_t *ncb;
 	int close = 1;
 
@@ -99,30 +98,30 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	os_dbg_warn("udp io exception on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
 
 	// 回调通知异常事件
-	c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
-	c_event.Event = EVT_EXCEPTION;
-	if ( kSend == packet->type_ ) {
-		c_data.e.Exception.SubEvent = EVT_SENDDATA;
-	} else if ( kRecv == packet->type_ ) {
-		c_data.e.Exception.SubEvent = EVT_RECEIVEDATA;
+	//c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
+	//c_event.Event = EVT_EXCEPTION;
+	//if ( kSend == packet->type_ ) {
+	//	c_data.e.Exception.SubEvent = EVT_SENDDATA;
+	//} else if ( kRecv == packet->type_ ) {
+	//	c_data.e.Exception.SubEvent = EVT_RECEIVEDATA;
 
-		/* 对 STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE 状态做过滤
-		   避免这几种 ICMP PORT UNREACHABLE 导致UDP收包PENDING耗竭， 这里再次投递kRecv请求
-		   并且不关闭这个链接
-		 */
-		if (status == STATUS_PORT_UNREACHABLE || 
-			status == STATUS_PROTOCOL_UNREACHABLE || 
-			status == STATUS_HOST_UNREACHABLE) {
-			packet->size_for_translation_ = 0;
-			asio_udp_recv(packet);
-			close = 0;
-		}
-	} else {
-		;
-	}
-	c_data.e.Exception.ErrorCode = status;
-	ncb_callback( ncb, &c_event, ( void * ) &c_data );
-	objdefr(ncb->link);
+	//	/* 对 STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE 状态做过滤
+	//	   避免这几种 ICMP PORT UNREACHABLE 导致UDP收包PENDING耗竭， 这里再次投递kRecv请求
+	//	   并且不关闭这个链接
+	//	 */
+	//	if (status == STATUS_PORT_UNREACHABLE || 
+	//		status == STATUS_PROTOCOL_UNREACHABLE || 
+	//		status == STATUS_HOST_UNREACHABLE) {
+	//		packet->size_for_translation_ = 0;
+	//		asio_udp_recv(packet);
+	//		close = 0;
+	//	}
+	//} else {
+	//	;
+	//}
+	//c_data.e.Exception.ErrorCode = status;
+	//ncb_callback( ncb, &c_event, ( void * ) &c_data );
+	//objdefr(ncb->link);
 
    /* 任何其他异常都关闭UDP对象 */
 	if (close) {
@@ -147,8 +146,6 @@ static int udp_update_opts(ncb_t *ncb) {
 static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 {
 	udp_cinit_t *ctx = ( udp_cinit_t * ) ncb_ctx;
-	nis_event_t c_event;
-	udp_data_t c_data;
 	int behavior;
 	ncb_t *ncb = ( ncb_t * ) user_buffer;
 	uint32_t bytes_returned;
@@ -200,7 +197,7 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 		// 这项属性打开情形下会导致 WSAECONNRESET 错误返回
 		behavior = -1;
 		if (WSAIoctl(ncb->sockfd, SIO_UDP_CONNRESET, &behavior, sizeof(behavior), NULL, 0, &bytes_returned, NULL, NULL) < 0) {
-			ncb_report_debug_information(ncb, "syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u ", WSAGetLastError() );
+			nis_call_ecr("syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u ", WSAGetLastError());
 			break;
 		}
 
@@ -209,10 +206,6 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 
 		// 回调用户地址， 通知调用线程， UDP 子对象已经创建完成
 		ncb_set_callback( ncb, ctx->f_user_callback_ );
-		c_event.Event = EVT_CREATED;
-		c_event.Ln.Udp.Link = (HUDPLINK)ncb->link;
-		c_data.e.LinkOption.OptionLink = (HUDPLINK)ncb->link;
-		ncb_callback(ncb, &c_event, &c_data);
 
 		return 0;
 

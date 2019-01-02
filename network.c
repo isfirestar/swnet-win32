@@ -2,6 +2,7 @@
 #include "iocp.h"
 #include "ncb.h"
 #include "packet.h"
+#include "mxx.h"
 
 #define		MINIMUM_IRPS_PER_OBJECT		(4)
 #define		MAXIMUM_IRPS_PER_OBJECT		(10)
