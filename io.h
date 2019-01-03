@@ -4,5 +4,6 @@
 int ioinit();
 void iouninit();
 int ioatth(void *ncbptr);
+void ioclose(void *ncbptr);
 
 #endif

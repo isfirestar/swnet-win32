@@ -359,7 +359,7 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 
 	if ( retval < 0 ) {
 		if (ncb->sockfd > 0)  {
-			so_close(&ncb->sockfd);
+			ioclose(ncb);
 		}
 	}
 
@@ -385,7 +385,7 @@ void tcp_unload( objhld_t h, void * user_buffer )
 	}
 
 	// 关闭内部套接字
-	so_close(&ncb->sockfd);
+	ioclose(ncb);
 
 	// 处理关闭后事件
 	c_event.Event = EVT_CLOSED;
@@ -943,15 +943,14 @@ HTCPLINK __stdcall tcp_create( tcp_io_callback_t user_callback, const char* l_ip
 void __stdcall tcp_destroy( HTCPLINK lnk )
 {
 	ncb_t *ncb;
-    objhld_t hld = (objhld_t)lnk;
-    
-    ncb = objrefr(hld);
-    if (ncb) {
-		so_close(&ncb->sockfd);
-        objdefr(hld);
-    }
-    
-    objclos(hld);
+
+	/* it should be the last reference operation of this object, no matter how many ref-count now. */
+	ncb = objreff(lnk);
+	if (ncb) {
+		nis_call_ecr("nshost.tcp.destroy: link:%I64d order to destroy", ncb->link);
+		ioclose(ncb);
+		objdefr(lnk);
+	}
 }
 
 int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )

@@ -146,14 +146,3 @@ int so_bind( SOCKET *s, uint32_t ip, uint16_t port )
 	}
 	return retval;
 }
-
-void so_close( SOCKET *s )
-{
-	if ( s ) {
-		if ( *s != INVALID_SOCKET ) {
-			shutdown( *s, SD_BOTH );
-			closesocket( *s );
-			*s = INVALID_SOCKET;
-		}
-	}
-}

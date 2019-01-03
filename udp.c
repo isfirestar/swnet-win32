@@ -211,7 +211,7 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 
 	} while ( FALSE );
 
-	so_close(&ncb->sockfd);
+	ioclose(ncb);
 	return -1;
 }
 
@@ -230,7 +230,7 @@ static void udp_unload( objhld_t h, void * user_buffer )
 	ncb_callback( ncb, &c_event, &h );
 
 	// 关闭内部套接字
-	so_close(&ncb->sockfd);
+	ioclose(ncb);
 
 	// 关闭后事件
 	c_event.Event = EVT_CLOSED;
@@ -507,8 +507,14 @@ int __stdcall udp_sendto(HUDPLINK lnk, int cb, nis_sender_maker_t maker, const v
 
 void __stdcall udp_destroy( HUDPLINK lnk )
 {
-	if ( INVALID_HUDPLINK != lnk ) {
-		objclos( ( objhld_t ) lnk );
+	ncb_t *ncb;
+
+	/* it should be the last reference operation of this object no matter how many ref-count now. */
+	ncb = objreff(lnk);
+	if (ncb) {
+		nis_call_ecr("nshost.udp.destroy: link %I64d order to destroy", ncb->link);
+		ioclose(ncb);
+		objdefr(lnk);
 	}
 }
 

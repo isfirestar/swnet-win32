@@ -152,6 +152,19 @@ int ioatth(void *ncbptr) {
 	return -1;
 }
 
+void ioclose(void *ncbptr) {
+	ncb_t *ncb;
+
+	ncb = (ncb_t *)ncbptr;
+	if (ncb) {
+		if (INVALID_SOCKET != ncb->sockfd) {
+			shutdown(ncb->sockfd, SD_BOTH);
+			closesocket(ncb->sockfd);
+			ncb->sockfd = INVALID_SOCKET;
+		}
+	}
+}
+
 void iouninit() {
 	int i;
 	struct epoll_object *epos;

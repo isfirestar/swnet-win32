@@ -29,7 +29,6 @@ enum proto_type_t {
 #define UDP_MAXIMUM_USER_DATA_SIZE	(1472)		/* MTU - UDP_P_SIZE - IP_P_SIZE */
 #endif
 
-void so_close( SOCKET *s );
 int so_init( enum proto_type_t proto_type, int th_cnt );
 void so_uninit( enum proto_type_t ProtoType );
 SOCKET so_allocate_asio_socket( int type, int protocol );
