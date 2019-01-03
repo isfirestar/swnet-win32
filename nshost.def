@@ -62,6 +62,7 @@ EXPORTS
 	vfn1_h64
 	vfn1a_h32
 	vfn1a_h64
+	crc32
 	base64__encode
 	base64__decode
 	MD5__Init

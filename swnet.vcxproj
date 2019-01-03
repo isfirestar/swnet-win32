@@ -167,6 +167,7 @@
       <PrecompiledHeaderOutputFile />
       <CompileAs>CompileAsC</CompileAs>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
