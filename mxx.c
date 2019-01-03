@@ -25,7 +25,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		os_dbg_error( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
 		return -1;
 	}
 
@@ -66,7 +66,7 @@ int __stdcall nis_getctx( HLNK lnk, void * user_context, int *user_context_size 
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		os_dbg_error( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
 		return -1;
 	}
 
@@ -102,7 +102,7 @@ int __stdcall nis_ctxsize( HLNK lnk )
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		os_dbg_error( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
 		return -1;
 	}
 	size = ncb->ncb_ctx_size_;

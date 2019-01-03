@@ -14,7 +14,7 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 
 	packet = ( packet_t * ) malloc( sizeof( packet_t ) );
 	if ( !packet ) {
-		os_dbg_error("fail to allocate memory for packet." );
+		nis_call_ecr("fail to allocate memory for packet." );
 		return -1;
 	}
 
@@ -34,12 +34,12 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 					break;
 				}
 			} else {
-				os_dbg_error("unknown page style [%u] specified.", page_style );
+				nis_call_ecr("unknown page style [%u] specified.", page_style );
 				break;
 			}
 		} else {
 			if ( page_style != kNoAccess ) {
-				os_dbg_error("page style [%u] specified and size is zero", page_style );
+				nis_call_ecr("page style [%u] specified and size is zero", page_style );
 				break;
 			}
 		}

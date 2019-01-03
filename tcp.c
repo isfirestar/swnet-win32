@@ -1,7 +1,7 @@
 #include "network.h"
 #include "ncb.h"
 #include "packet.h"
-#include "iocp.h"
+#include "io.h"
 #include "mxx.h"
 
 #include <assert.h>
@@ -349,7 +349,7 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		ncb->tcp_usable_sender_cache_ = TCP_BUFFER_SIZE;
 
 		// 将对象绑定到异步IO的完成端口
-		if (iocp_bind(ncb->sockfd) < 0) {
+		if (ioatth(ncb) < 0) {
 			break;
 		}
 
@@ -526,7 +526,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		ncb_accepted->l_addr_.sin_port = pl->sin_port;
 		ncb_accepted->l_addr_.sin_addr.S_un.S_addr = pl->sin_addr.S_un.S_addr;
 
-		if (iocp_bind(ncb_accepted->sockfd) >= 0) {
+		if (ioatth(ncb_accepted) >= 0) {
 			c_event.Ln.Tcp.Link = (HTCPLINK)ncb_listen->link;
 			c_event.Event = EVT_TCP_ACCEPTED;
 			c_data.e.Accept.AcceptLink = (HTCPLINK)ncb_accepted->link;
@@ -559,7 +559,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 
 	ncb_listen = tcprefr(packet->link);
 	if ( !ncb_listen ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
@@ -606,7 +606,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 
 	ncb = tcprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
@@ -650,7 +650,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	ncb = tcprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
@@ -765,11 +765,11 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	ncb = tcprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
-	os_dbg_warn("IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
+	nis_call_ecr("IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
 
 	// 发送异常需要递减未决请求量
 	if ( kSend == packet->type_ ) {
@@ -966,7 +966,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 
 	ncb = tcprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
@@ -983,7 +983,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 		}
 
 		if (connect(ncb->sockfd, (const struct sockaddr *)&r_addr, sizeof(r_addr)) < 0) {
-			os_dbg_warn( "syscall failed,target endpoint=%s:%u, error code=%u", r_ipstr, port, WSAGetLastError() );
+			nis_call_ecr( "syscall failed,target endpoint=%s:%u, error code=%u", r_ipstr, port, WSAGetLastError() );
 			break;
 		}
 
@@ -1034,7 +1034,7 @@ int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 
 	ncb = tcprefr(lnk);
 	if (!ncb) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", lnk);
+		nis_call_ecr("fail to reference ncb object:0x%08X", lnk);
 		return -1;
 	}
 
@@ -1075,7 +1075,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 
 	ncb = tcprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
@@ -1225,7 +1225,7 @@ int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *po
 	if ( LINK_ADDR_LOCAL == nType ) {
 		ncb = tcprefr( lnk );
 		if ( !ncb ) {
-			os_dbg_warn( "fail to reference ncb object:0x%08X", lnk );
+			nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 			return -1;
 		}
 
@@ -1239,7 +1239,7 @@ int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *po
 	if ( LINK_ADDR_REMOTE == nType ) {
 		ncb = tcprefr( lnk );
 		if ( !ncb ) {
-			os_dbg_warn( "fail to reference ncb object:0x%08X", lnk );
+			nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 			return -1;
 		}
 
@@ -1262,7 +1262,7 @@ int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int
 
 	ncb = tcprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
@@ -1286,7 +1286,7 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 
 	ncb = tcprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 

@@ -1,7 +1,7 @@
 #include "network.h"
 #include "ncb.h"
 #include "packet.h"
-#include "iocp.h"
+#include "io.h"
 #include "mxx.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -49,7 +49,7 @@ static void udp_dispatch_io_recv( packet_t *packet )
 
 	ncb = udprefr( packet->link );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
@@ -91,11 +91,11 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	ncb = udprefr(packet->link);
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
-	os_dbg_warn("udp io exception on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
+	nis_call_ecr("udp io exception on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
 
 	// 回调通知异常事件
 	//c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
@@ -202,7 +202,7 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 		}
 
 		// 将对象绑定到异步IO的完成端口
-		if (iocp_bind(ncb->sockfd) < 0) break;
+		if (ioatth(ncb) < 0) break;
 
 		// 回调用户地址， 通知调用线程， UDP 子对象已经创建完成
 		ncb_set_callback( ncb, ctx->f_user_callback_ );
@@ -539,7 +539,7 @@ int __stdcall udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
 		return 0;
 	}
 
-	os_dbg_warn("fail to reference ncb object:0x%08X", lnk );
+	nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 	return -1;
 }
 
@@ -554,7 +554,7 @@ int __stdcall udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int
 
 	ncb = udprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
@@ -576,7 +576,7 @@ int __stdcall udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len 
 
 	ncb = udprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
@@ -598,7 +598,7 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 
 	ncb = udprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
@@ -651,7 +651,7 @@ int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port 
 
 	ncb = udprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
@@ -692,7 +692,7 @@ void __stdcall udp_detach_grp( HUDPLINK lnk )
 
 	ncb = udprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return;
 	}
 
@@ -717,7 +717,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 
 	ncb = udprefr( lnk );
 	if ( !ncb ) {
-		os_dbg_warn("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 

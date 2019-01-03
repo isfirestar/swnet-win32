@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="iocp.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="mxx.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -20,9 +17,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="udp.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="os.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\avltree.c">
@@ -55,6 +49,12 @@
     <ClCompile Include="..\libnsp\com\posix_wait.c">
       <Filter>linbsp</Filter>
     </ClCompile>
+    <ClCompile Include="io.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="os.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="packet.h">
@@ -64,12 +64,6 @@
       <Filter>Head Files</Filter>
     </ClInclude>
     <ClInclude Include="ncb.h">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="iocp.h">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="os.h">
       <Filter>Head Files</Filter>
     </ClInclude>
     <ClInclude Include="..\libnsp\icom\avltree.h">
@@ -121,6 +115,12 @@
       <Filter>Resource Files</Filter>
     </ClInclude>
     <ClInclude Include="mxx.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="io.h">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="os.h">
       <Filter>Head Files</Filter>
     </ClInclude>
   </ItemGroup>

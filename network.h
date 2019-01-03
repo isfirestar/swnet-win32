@@ -1,13 +1,8 @@
 #if !defined (NETWORK_COMMON_LIBRARY_20120803_1)
 #define NETWORK_COMMON_LIBRARY_20120803_1
 
-#if !defined (WIN32_LEAN_AND_MEAN)
-#define WIN32_LEAN_AND_MEAN
-#endif
-
 #include "os.h"
-#include "nis.h"
-#include "clist.h"
+
 
 //////////////////////////////////////////////////// 套接字对象(so, socket object) 相关接口/////////////////////////////////////////////////////////////////////////////
 enum proto_type_t {
