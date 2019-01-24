@@ -97,31 +97,20 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	nis_call_ecr("udp io exception on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
 
-	// 回调通知异常事件
-	//c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
-	//c_event.Event = EVT_EXCEPTION;
-	//if ( kSend == packet->type_ ) {
-	//	c_data.e.Exception.SubEvent = EVT_SENDDATA;
-	//} else if ( kRecv == packet->type_ ) {
-	//	c_data.e.Exception.SubEvent = EVT_RECEIVEDATA;
-
-	//	/* 对 STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE 状态做过滤
-	//	   避免这几种 ICMP PORT UNREACHABLE 导致UDP收包PENDING耗竭， 这里再次投递kRecv请求
-	//	   并且不关闭这个链接
-	//	 */
-	//	if (status == STATUS_PORT_UNREACHABLE || 
-	//		status == STATUS_PROTOCOL_UNREACHABLE || 
-	//		status == STATUS_HOST_UNREACHABLE) {
-	//		packet->size_for_translation_ = 0;
-	//		asio_udp_recv(packet);
-	//		close = 0;
-	//	}
-	//} else {
-	//	;
-	//}
-	//c_data.e.Exception.ErrorCode = status;
-	//ncb_callback( ncb, &c_event, ( void * ) &c_data );
-	//objdefr(ncb->link);
+	if ( kRecv == packet->type_ ) {
+		/* 对 STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE 状态做过滤
+		   避免这几种 ICMP PORT UNREACHABLE 导致UDP收包PENDING耗竭， 这里再次投递kRecv请求
+		   并且不关闭这个链接
+		 */
+		if (status == STATUS_PORT_UNREACHABLE || 
+			status == STATUS_PROTOCOL_UNREACHABLE || 
+			status == STATUS_HOST_UNREACHABLE) {
+			packet->size_for_translation_ = 0;
+			asio_udp_recv(packet);
+			close = 0;
+		}
+	}
+	objdefr(ncb->link);
 
    /* 任何其他异常都关闭UDP对象 */
 	if (close) {
