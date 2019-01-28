@@ -376,14 +376,6 @@ HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ip
 	return ( HUDPLINK ) h;
 }
 
-static int udp_maker( void *data, int cb, const void *context ) {
-	if ( data && cb > 0 && context ) {
-		memcpy( data, context, cb );
-		return 0;
-	}
-	return -1;
-}
-
 static
 int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const char* r_ipstr, uint16_t r_port)  {
 	int wcb;
@@ -413,7 +405,7 @@ int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const 
 	return 0;
 }
 
-int __stdcall udp_write(HUDPLINK lnk, int cb, nis_sender_maker_t maker, const void *par, const char* r_ipstr, uint16_t r_port )
+int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_ipstr, uint16_t r_port, const nis_serializer_t serializer)
 {
 	int retval;
 	ncb_t *ncb;
@@ -439,14 +431,12 @@ int __stdcall udp_write(HUDPLINK lnk, int cb, nis_sender_maker_t maker, const vo
 			break;
 		}
 
-		if (maker) {
-			if ((*maker)(buffer, cb, par) < 0) {
+		if (serializer) {
+			if (serializer(buffer, origin, cb) < 0) {
 				break;
 			}
-		} else{
-			if (udp_maker(buffer, cb, par) < 0) {
-				break;
-			}
+		} else {
+			memcpy(buffer, origin, cb);
 		}
 
 		retval = __udp_tx_single_packet(ncb, buffer, cb, r_ipstr, r_port);
@@ -457,41 +447,6 @@ int __stdcall udp_write(HUDPLINK lnk, int cb, nis_sender_maker_t maker, const vo
 	}
 	objdefr(hld);
 	return retval;
-}
-
-int __stdcall udp_sendto(HUDPLINK lnk, int cb, nis_sender_maker_t maker, const void *par, const char* r_ipstr, uint16_t r_port) {
-	packet_t * packet;
-	char *buffer;
-
-	if (cb > MTU || cb <= 0 || INVALID_HUDPLINK == lnk || !r_ipstr || 0 == r_port) {
-		return -1;
-	}
-
-	buffer = (char *)malloc(cb);
-	if (!buffer) {
-		return -1;
-	}
-
-	if (maker) {
-		if (maker(buffer, cb, par) < 0) {
-			free(buffer);
-			return -1;
-		}
-	} else {
-		if (udp_maker(buffer, cb, par) < 0) {
-			free(buffer);
-			return -1;
-		}
-	}
-
-	if (allocate_packet((objhld_t)lnk, kProto_UDP, kSend, 0, kNoAccess, &packet) >= 0) {
-		packet->irp_ = packet->ori_buffer_ = buffer;
-		packet->size_for_req_ = cb;
-		return syio_udp_send(packet, r_ipstr, r_port);
-	}
-
-	free(buffer);
-	return -1;
 }
 
 void __stdcall udp_destroy( HUDPLINK lnk )

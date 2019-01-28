@@ -1106,24 +1106,15 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	return retval;
 }
 
-static int STDCALL tcp_maker( void *data, int cb, const void *context ) {
-	if ( data && cb > 0 && context ) {
-		memcpy( data, context, cb );
-		return 0;
-	}
-	return -1;
-}
-
-int __stdcall tcp_write(HTCPLINK lnk, int cb, nis_sender_maker_t maker, const void *par )
+int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_serializer_t serializer)
 {
 	char *buffer;
 	ncb_t *ncb;
 	packet_t *packet;
 	int total_packet_length;
 	int retval;
-	nis_sender_maker_t amaker;
 
-	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb >= TCP_MAXIMUM_PACKET_SIZE) {
+	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb >= TCP_MAXIMUM_PACKET_SIZE || !origin) {
 		return -1;
 	}
 
@@ -1149,12 +1140,6 @@ int __stdcall tcp_write(HTCPLINK lnk, int cb, nis_sender_maker_t maker, const vo
 			break;
 		}
 
-		/* user data filler */
-		amaker = maker;
-		if (!amaker) {
-			amaker = &tcp_maker;
-		}
-
 		if (ncb->tcp_tst_.builder_) {
 			total_packet_length = ncb->tcp_tst_.cb_ + cb;
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
@@ -1166,8 +1151,12 @@ int __stdcall tcp_write(HTCPLINK lnk, int cb, nis_sender_maker_t maker, const vo
 				break;
 			}
 
-			if (amaker(buffer + ncb->tcp_tst_.cb_, cb, par) < 0) {
-				break;
+			if (serializer) {
+				if (serializer(buffer + ncb->tcp_tst_.cb_, origin, cb - ncb->tcp_tst_.cb_) < 0) {
+					break;
+				}
+			} else {
+				memcpy(buffer + ncb->tcp_tst_.cb_, origin, cb);
 			}
 		} else {
 			total_packet_length = cb;
@@ -1176,8 +1165,12 @@ int __stdcall tcp_write(HTCPLINK lnk, int cb, nis_sender_maker_t maker, const vo
 				break;
 			}
 
-			if (amaker(buffer, cb, par) < 0) {
-				break;
+			if(serializer) {
+				if (serializer(buffer, origin, cb) < 0) {
+					break;
+				}
+			} else {
+				memcpy(buffer, origin, cb);
 			}
 		}
 
