@@ -25,7 +25,8 @@ EXPORTS
 	tcp_getaddr
 	tcp_setopt
 	tcp_getopt
-
+	tcp_setattr
+	tcp_getattr
 	
 	udp_init
 	udp_uninit

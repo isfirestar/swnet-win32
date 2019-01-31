@@ -20,23 +20,24 @@ static
 int udp_get_boardcast( ncb_t *ncb, int *enabled );
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 static
-ncb_t *udprefr( objhld_t handle ) {
-	ncb_t *ncb;
-
-	if ( handle < 0 ) {
-		return NULL;
+int udprefr(objhld_t hld, ncb_t **ncb) {
+	if (hld < 0 || !ncb) {
+		return -ENOENT;
 	}
 
-	ncb = objrefr( handle );
-	if ( ncb ) {
-		if ( ncb->proto_type_ == kProto_UDP ) {
-			return ncb;
+	*ncb = objrefr(hld);
+	if (NULL != (*ncb)) {
+		if ((*ncb)->proto_type_ == kProto_UDP) {
+			return 0;
 		}
-		objdefr( handle );
+
+		objdefr(hld);
+		*ncb = NULL;
+		return -EPROTOTYPE;
 	}
-	return NULL;
+
+	return -ENOENT;
 }
 
 static void udp_dispatch_io_recv( packet_t *packet )
@@ -45,10 +46,11 @@ static void udp_dispatch_io_recv( packet_t *packet )
 	udp_data_t c_data;
 	ncb_t *ncb;
 
-	if ( !packet ) return;
+	if (!packet) {
+		return;
+	}
 
-	ncb = udprefr( packet->link );
-	if ( !ncb ) {
+	if (udprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
@@ -89,8 +91,7 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	if ( !packet ) return;
 
-	ncb = udprefr(packet->link);
-	if ( !ncb ) {
+	if (udprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
@@ -475,16 +476,9 @@ int __stdcall udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
 		return -1;
 	}
 
-	ncb = udprefr( lnk );
-	if ( ncb ) {
-		if ( kProto_UDP == ncb->proto_type_ ) {
-			*ipv4 = htonl( ncb->l_addr_.sin_addr.S_un.S_addr );
-			*port_output = htons( ncb->l_addr_.sin_port );
-		} else {
-			*ipv4 = 0;
-			*port_output = 0;
-		}
-
+	if (udprefr(lnk, &ncb) >= 0) {
+		*ipv4 = htonl(ncb->l_addr_.sin_addr.S_un.S_addr);
+		*port_output = htons(ncb->l_addr_.sin_port);
 		objdefr( ncb->link );
 		return 0;
 	}
@@ -502,15 +496,12 @@ int __stdcall udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int
 		return -1;
 	}
 
-	ncb = udprefr( lnk );
-	if ( !ncb ) {
+	if (udprefr(lnk, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
-	if ( kProto_UDP == ncb->proto_type_ ) {
-		retval = ((kProto_UDP == ncb->proto_type_) ? setsockopt(ncb->sockfd, level, opt, val, len) : (-1));
-	}
+	retval = setsockopt(ncb->sockfd, level, opt, val, len);
 	objdefr( ncb->link );
 	return retval;
 }
@@ -524,15 +515,13 @@ int __stdcall udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len 
 		return -1;
 	}
 
-	ncb = udprefr( lnk );
-	if ( !ncb ) {
+	if (udprefr(lnk, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
-	if ( kProto_UDP == ncb->proto_type_ ) {
-		retval = ((kProto_UDP == ncb->proto_type_) ? getsockopt(ncb->sockfd, level, opt, val, len) : (-1));
-	}
+	retval = getsockopt(ncb->sockfd, level, opt, val, len);
+
 	objdefr( ncb->link );
 	return retval;
 }
@@ -543,18 +532,23 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 	int retval = -1;
 	int i;
 
-	if ( !grp ) return -1;
-	if ( grp->Count <= 0 ) return -1;
+	if (!grp) {
+		return -1;
+	}
+	
+	if (grp->Count <= 0) {
+		return -1;
+	}
 
-	ncb = udprefr( lnk );
-	if ( !ncb ) {
+	if (udprefr(lnk, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
 	do {
-		if ( kProto_UDP != ncb->proto_type_ ) break;
-		if ( !ncb->connected_ ) break;
+		if (!ncb->connected_) {
+			break;
+		}
 
 		for ( i = 0; i < grp->Count; i++ ) {
 			if ( ( 0 == grp->Items[i].Length ) || ( grp->Items[i].Length > MTU ) ) break;
@@ -562,7 +556,9 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 		}
 
 		retval = ( ( i == grp->Count ) ? 0 : -1 );
-		if ( 0 == retval ) break;
+		if (0 == retval) {
+			break;
+		}
 
 		// 错误回滚
 		for ( i = 0; i < grp->Count; i++ ) {
@@ -599,8 +595,7 @@ int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port 
 	int retval;
 	struct sockaddr_in r_addr;
 
-	ncb = udprefr( lnk );
-	if ( !ncb ) {
+	if (udprefr(lnk, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
@@ -640,16 +635,13 @@ void __stdcall udp_detach_grp( HUDPLINK lnk )
 {
 	ncb_t * ncb;
 
-	ncb = udprefr( lnk );
-	if ( !ncb ) {
+	if (udprefr(lnk, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return;
 	}
 
-	if ( kProto_UDP == ncb->proto_type_ ) {
-		if ( 0 != ncb->connected_ ) {
-			syio_v_disconnect( ncb );
-		}
+	if (0 != ncb->connected_) {
+		syio_v_disconnect(ncb);
 	}
 
 	objdefr( ncb->link );
@@ -662,18 +654,23 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 	int i;
 	int retval = -1;
 
-	if ( !grp ) return -1;
-	if ( grp->Count <= 0 ) return -1;
+	if (!grp) {
+		return -1;
+	}
+	
+	if (grp->Count <= 0) {
+		return -1;
+	}
 
-	ncb = udprefr( lnk );
-	if ( !ncb ) {
+	if (udprefr(lnk, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
 
 	do {
-		if ( kProto_UDP != ncb->proto_type_ ) break;
-		if ( !ncb->connected_ ) break;
+		if (!ncb->connected_) {
+			break;
+		}
 
 		// 创建分组包
 		retval = allocate_packet( ( objhld_t ) lnk, kProto_UDP, kSend, 0, kNoAccess, &packet );

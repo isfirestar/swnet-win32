@@ -76,22 +76,25 @@ static int tcp_get_nodelay( ncb_t *ncb, int *set );
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static
-ncb_t *tcprefr( objhld_t handle ) {
-	ncb_t *ncb;
-
-	if ( handle < 0 ) {
-		return NULL;
+int tcprefr(objhld_t hld, ncb_t **ncb) {
+	if (hld < 0 || !ncb) {
+		return -ENOENT;
 	}
 
-	ncb = objrefr( handle );
-	if ( ncb ) {
-		if ( ncb->proto_type_ == kProto_TCP ) {
-			return ncb;
+	*ncb = objrefr(hld);
+	if (NULL != (*ncb)) {
+		if ((*ncb)->proto_type_ == kProto_TCP) {
+			return 0;
 		}
-		objdefr( handle );
+
+		objdefr(hld);
+		*ncb = NULL;
+		return -EPROTOTYPE;
 	}
-	return NULL;
+
+	return -ENOENT;
 }
+
 
 static 
 void tcp_try_write( ncb_t * ncb )
@@ -555,17 +558,21 @@ void tcp_dispatch_io_syn( packet_t * packet )
 	packet_t *recv_packet;
 	int retval;
 
-	if ( !packet )  return;
+	if (!packet)  {
+		return;
+	}
 
-	ncb_listen = tcprefr(packet->link);
-	if ( !ncb_listen ) {
+	ncb_listen = NULL;
+	ncb_accepted = NULL;
+	recv_packet = NULL;
+
+	if (tcprefr(packet->link, &ncb_listen) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
 	// 后续操作不依赖于远端对象的引用成功， 即远端对象即使引用失败， 也不影响下个accept请求的投递
-	ncb_accepted = tcprefr(packet->accepted_link);
-	if ( ncb_accepted ) {
+	if (tcprefr(packet->accepted_link, &ncb_accepted) >= 0) {
 		retval = tcp_syn_copy( ncb_listen, ncb_accepted, packet );
 		if ( retval >= 0 ) {
 			retval = allocate_packet(ncb_accepted->link, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &recv_packet);
@@ -604,8 +611,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 		return;
 	}
 
-	ncb = tcprefr(packet->link);
-	if ( !ncb ) {
+	if (tcprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
@@ -648,8 +654,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 		return;
 	}
 
-	ncb = tcprefr(packet->link);
-	if ( !ncb ) {
+	if (tcprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
@@ -700,8 +705,7 @@ void tcp_dispatch_io_connected(packet_t * packet){
 	packet_t *packet_rcv;
 	int optval;
 
-	ncb = tcprefr(packet->link);
-	if (!ncb){
+	if (tcprefr(packet->link, &ncb) < 0) {
 		return;
 	}
 
@@ -763,8 +767,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	if ( !packet ) return;
 
-	ncb = tcprefr(packet->link);
-	if ( !ncb ) {
+	if (tcprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
@@ -853,8 +856,7 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 				objclos(packet->accepted_link);
 				freepkt( packet );
 
-				ncb = tcprefr(packet->link);
-				if ( ncb ) {
+				if (tcprefr(packet->link, &ncb) >= 0) {
 					tcp_syn( ncb );
 					objdefr( ncb->link );
 				}
@@ -881,10 +883,13 @@ int __stdcall tcp_settst( HTCPLINK lnk, const tst_t *tst )
 {
 	ncb_t *ncb;
 
-	if ( !tst ) return -1;
+	if (!tst) {
+		return -1;
+	}
 
-	ncb = tcprefr( lnk );
-	if ( !ncb ) return -1;
+	if (tcprefr(lnk, &ncb) < 0) {
+		return -1;
+	}
 
 	ncb->tcp_tst_.cb_ = tst->cb_;
 	ncb->tcp_tst_.builder_ = tst->builder_;
@@ -898,10 +903,9 @@ int __stdcall tcp_gettst( HTCPLINK lnk, tst_t *tst )
 {
 	ncb_t *ncb;
 
-	if ( !tst ) return -1;
-
-	ncb = tcprefr( lnk );
-	if ( !ncb ) return -1;
+	if (tcprefr(lnk, &ncb) < 0) {
+		return -1;
+	}
 
 	tst->cb_ = ncb->tcp_tst_.cb_;
 	tst->builder_ = ncb->tcp_tst_.builder_;
@@ -961,10 +965,11 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 	tcp_data_t c_data;
 	packet_t * packet = NULL;
 
-	if ( !r_ipstr || 0 == port ) return -EINVAL;
+	if (!r_ipstr || 0 == port) {
+		return -EINVAL;
+	}
 
-	ncb = tcprefr( lnk );
-	if ( !ncb ) {
+	if (tcprefr(lnk, &ncb) < 0) {
 		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
@@ -1029,10 +1034,11 @@ int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 	ncb_t *ncb;
 	packet_t * packet = NULL;
 
-	if (!r_ipstr || 0 == port) return -EINVAL;
+	if (!r_ipstr || 0 == port) {
+		return -EINVAL;
+	}
 
-	ncb = tcprefr(lnk);
-	if (!ncb) {
+	if (tcprefr(lnk, &ncb) < 0) {
 		nis_call_ecr("fail to reference ncb object:0x%08X", lnk);
 		return -1;
 	}
@@ -1072,8 +1078,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	int retval;
 	int i;
 
-	ncb = tcprefr( lnk );
-	if ( !ncb ) {
+	if (tcprefr(lnk, &ncb) < 0 ) {
 		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
@@ -1128,19 +1133,28 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	retval = -1;
 	buffer = NULL;
 	packet = NULL;
+
 	do {
-		
-		ncb = tcprefr( lnk );
-		if ( !ncb ) {
+		retval = tcprefr(lnk, &ncb);
+		if (retval < 0) {
 			break;
 		}
 
-		// 解析例程必须指定
-		if (!ncb->tcp_tst_.parser_ ) {
-			break;
-		}
+		if ((!ncb->tcp_tst_.builder_) || (ncb->optmask & LINKATTR_TCP_NO_BUILD)) {
+			total_packet_length = cb;
+			// 没有指定下层协议的构建例程，则认为传入数据已经完成了下层协议的构建
+			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
+				break;
+			}
 
-		if (ncb->tcp_tst_.builder_) {
+			if (serializer) {
+				if (serializer(buffer, origin, cb) < 0) {
+					break;
+				}
+			} else {
+				memcpy(buffer, origin, cb);
+			}
+		} else {
 			total_packet_length = ncb->tcp_tst_.cb_ + cb;
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
 				break;
@@ -1157,20 +1171,6 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 				}
 			} else {
 				memcpy(buffer + ncb->tcp_tst_.cb_, origin, cb);
-			}
-		} else {
-			total_packet_length = cb;
-			// 没有指定下层协议的构建例程，则认为传入数据已经完成了下层协议的构建
-			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
-				break;
-			}
-
-			if(serializer) {
-				if (serializer(buffer, origin, cb) < 0) {
-					break;
-				}
-			} else {
-				memcpy(buffer, origin, cb);
 			}
 		}
 
@@ -1215,8 +1215,7 @@ int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *po
 	}
 
 	if ( LINK_ADDR_LOCAL == nType ) {
-		ncb = tcprefr( lnk );
-		if ( !ncb ) {
+		if (tcprefr(lnk, &ncb) < 0) {
 			nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 			return -1;
 		}
@@ -1229,8 +1228,7 @@ int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *po
 	}
 
 	if ( LINK_ADDR_REMOTE == nType ) {
-		ncb = tcprefr( lnk );
-		if ( !ncb ) {
+		if (tcprefr(lnk, &ncb) < 0) {
 			nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 			return -1;
 		}
@@ -1250,10 +1248,11 @@ int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int
 	ncb_t * ncb;
 	int retval = -1;
 
-	if ( ( INVALID_HTCPLINK == lnk ) || ( !val ) ) 	return -1;
+	if ((INVALID_HTCPLINK == lnk) || (!val)) 	{
+		return -1;
+	}
 
-	ncb = tcprefr( lnk );
-	if ( !ncb ) {
+	if (tcprefr(lnk, &ncb) < 0) {
 		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
@@ -1274,10 +1273,11 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 	ncb_t * ncb;
 	int retval = -1;
 
-	if ( ( INVALID_HTCPLINK == lnk ) || ( !OptVal ) || ( !len ) ) return -1;
+	if ((INVALID_HTCPLINK == lnk) || (!OptVal) || (!len)) {
+		return -1;
+	}
 
-	ncb = tcprefr( lnk );
-	if ( !ncb ) {
+	if (tcprefr(lnk, &ncb) < 0) {
 		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
 		return -1;
 	}
@@ -1340,4 +1340,48 @@ int tcp_get_nodelay(ncb_t *ncb, int *set) {
         return getsockopt(ncb->sockfd, IPPROTO_TCP, TCP_NODELAY, (void *__restrict)set, &optlen);
     }
     return -EINVAL;
+}
+
+int __stdcall tcp_setattr(HTCPLINK lnk, int attr, int enable) {
+	ncb_t *ncb;
+	int retval;
+
+	retval = tcprefr(lnk, &ncb);
+	if (retval < 0) {
+		return retval;
+	}
+
+	switch (attr) {
+		case LINKATTR_TCP_FULLY_RECEIVE:
+		case LINKATTR_TCP_NO_BUILD:
+		case LINKATTR_TCP_UPDATE_ACCEPT_CONTEXT:
+			(enable > 0) ? (ncb->optmask |= attr) : (ncb->optmask &= ~attr);
+			retval = 0;
+			break;
+		default:
+			retval = -EINVAL;
+			break;
+	}
+
+	objdefr(lnk);
+	return retval;
+}
+
+int __stdcall tcp_getattr(HTCPLINK lnk, int attr, int *enabled) {
+	ncb_t *ncb;
+	int retval;
+
+	retval = tcprefr(lnk, &ncb);
+	if (retval < 0) {
+		return retval;
+	}
+
+	if (ncb->optmask & attr) {
+		*enabled = 1;
+	} else {
+		*enabled = 0;
+	}
+
+	objdefr(lnk);
+	return retval;
 }

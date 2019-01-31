@@ -12,10 +12,10 @@
     <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommand>C:\Users\anderson\Desktop\BlackBox\BlackBox.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommand>D:\work\git\my\master\swnet-win32\bin\Debug\TestMt.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>
     </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\Users\anderson\Desktop\BlackBox\</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>D:\work\git\my\master\swnet-win32\bin\Debug</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <RemoteDebuggerCommand>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommand>
     <RemoteDebuggerCommandArguments>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommandArguments>
