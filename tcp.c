@@ -101,7 +101,9 @@ void tcp_try_write( ncb_t * ncb )
 {
 	packet_t *next_packet;
 
-	if ( !ncb ) return;
+	if (!ncb) {
+		return;
+	}
 
 	EnterCriticalSection( &ncb->tcp_lst_lock_ );
 
@@ -508,7 +510,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		status = (NTSTATUS)WSAIoctl(ncb_accepted->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_GET_ACCEPTEX_SOCK_ADDRS,
 			sizeof( GUID_GET_ACCEPTEX_SOCK_ADDRS ), &WSAGetAcceptExSockAddrs, sizeof( WSAGetAcceptExSockAddrs ), &cb_ioctl, NULL, NULL );
 		if ( !NT_SUCCESS( status ) ) {
-			nis_call_ecr("syscall WSAIoctl for GUID_GET_ACCEPTEX_SOCK_ADDRS failed,NTSTATUS=0x%08X", status);
+			nis_call_ecr("[nshost.tcp.tcp_syn_copy] syscall WSAIoctl for GUID_GET_ACCEPTEX_SOCK_ADDRS failed,NTSTATUS=0x%08X, link:%I64d", status, ncb_accepted->link);
 			return -1;
 		}
 	}
@@ -538,7 +540,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		}
 	}
 
-	nis_call_ecr("syscall setsockopt failed(SO_UPDATE_ACCEPT_CONTEXT), error code = %u", WSAGetLastError() );
+	nis_call_ecr("[nshost.tcp.tcp_syn_copy] syscall setsockopt(2) failed(SO_UPDATE_ACCEPT_CONTEXT), error code:%u, link:%I64d", WSAGetLastError(), ncb_accepted->link);
 	return -1;
 }
 
@@ -567,7 +569,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 	recv_packet = NULL;
 
 	if (tcprefr(packet->link, &ncb_listen) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_syn] fail to reference link:%I64d", packet->link);
 		return;
 	}
 
@@ -612,7 +614,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 	}
 
 	if (tcprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] fail to reference link:%I64d", packet->link);
 		return;
 	}
 
@@ -655,7 +657,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 	}
 
 	if (tcprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_recv] fail to reference link:%I64d", packet->link);
 		return;
 	}
 
@@ -765,14 +767,16 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 {
 	ncb_t * ncb;
 
-	if ( !packet ) return;
-
-	if (tcprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
+	if (!packet) {
 		return;
 	}
 
-	nis_call_ecr("IO exception catched on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
+	if (tcprefr(packet->link, &ncb) < 0) {
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] fail to reference link:%I64d", packet->link);
+		return;
+	}
+
+	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched on NTSTATUS=0x%08X, lnk:%I64d", status, packet->link );
 
 	// 发送异常需要递减未决请求量
 	if ( kSend == packet->type_ ) {
@@ -832,7 +836,9 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 {
 	ncb_t * ncb;
 
-	if ( !packet ) return;
+	if (!packet) {
+		return;
+	}
 
 	switch ( packet->type_ ) {
 
@@ -843,6 +849,7 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 				objclos(packet->link);
 				freepkt( packet );
 			}
+			nis_call_ecr("[nshost.tcp.tcp_shutdwon_by_packet] shutdown type:%d link:%I64d", packet->type_, packet->link);
 			break;
 
 			//
@@ -860,6 +867,7 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 					tcp_syn( ncb );
 					objdefr( ncb->link );
 				}
+				nis_call_ecr("[nshost.tcp.tcp_shutdwon_by_packet] shutdown type:%d link:%I64d", packet->type_, packet->link);
 			}
 			break;
 
@@ -951,7 +959,7 @@ void __stdcall tcp_destroy( HTCPLINK lnk )
 	/* it should be the last reference operation of this object, no matter how many ref-count now. */
 	ncb = objreff(lnk);
 	if (ncb) {
-		nis_call_ecr("nshost.tcp.destroy: link:%I64d order to destroy", ncb->link);
+		nis_call_ecr("[nshost.tcp.tcp_destroy] order to destroy,link:%I64d", ncb->link);
 		ioclose(ncb);
 		objdefr(lnk);
 	}
@@ -970,7 +978,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "[nshost.tcp.tcp_connect] fail to reference link:%I64d", lnk );
 		return -1;
 	}
 
@@ -987,7 +995,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 		}
 
 		if (connect(ncb->sockfd, (const struct sockaddr *)&r_addr, sizeof(r_addr)) < 0) {
-			nis_call_ecr( "syscall failed,target endpoint=%s:%u, error code=%u", r_ipstr, port, WSAGetLastError() );
+			nis_call_ecr( "[nshost.tcp.tcp_connect] syscall connect(2) failed,target endpoint=%s:%u, error:%u, link:%I64d", r_ipstr, port, WSAGetLastError(), ncb->link );
 			break;
 		}
 
@@ -1039,7 +1047,7 @@ int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", lnk);
+		nis_call_ecr("[nshost.tcp.tcp_connect2] fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -1079,7 +1087,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	int i;
 
 	if (tcprefr(lnk, &ncb) < 0 ) {
-		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "[nshost.tcp.tcp_listen] fail to reference link:%I64d", lnk );
 		return -1;
 	}
 
@@ -1126,6 +1134,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	// 全局对延迟发送的数据队列长度进行保护
 	if ( InterlockedIncrement( &__tcp_global_sender_cached_cnt ) >= TCP_MAXIMUM_SENDER_CACHED_CNT ) {
 		InterlockedDecrement( &__tcp_global_sender_cached_cnt );
+		nis_call_ecr("[nshost.tcp.tcp_write] pre-sent cache overflow.");
 		return -1;
 	}
 
@@ -1137,6 +1146,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	do {
 		retval = tcprefr(lnk, &ncb);
 		if (retval < 0) {
+			nis_call_ecr("[nshost.tcp.tcp_write] failed reference object, link:%I64d", lnk);
 			break;
 		}
 
@@ -1209,38 +1219,34 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *port )
 {
 	ncb_t * ncb;
+	int retval;
 
 	if ( INVALID_HTCPLINK == lnk || !ipv4 || !port ) {
 		return -1;
 	}
 
-	if ( LINK_ADDR_LOCAL == nType ) {
-		if (tcprefr(lnk, &ncb) < 0) {
-			nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
-			return -1;
-		}
+	if (tcprefr(lnk, &ncb) < 0) {
+		nis_call_ecr("[nshost.tcp.tcp_getaddr] fail to reference link:%I64d", lnk);
+		return -1;
+	}
 
+	retval = 0;
+
+	if ( LINK_ADDR_LOCAL == nType ) {
 		*ipv4 = htonl( ncb->l_addr_.sin_addr.S_un.S_addr );
 		*port = htons( ncb->l_addr_.sin_port );
-
-		objdefr( ncb->link );
-		return 0;
-	}
-
-	if ( LINK_ADDR_REMOTE == nType ) {
-		if (tcprefr(lnk, &ncb) < 0) {
-			nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
-			return -1;
+	} else {
+		if (LINK_ADDR_REMOTE == nType) {
+			*ipv4 = htonl(ncb->r_addr_.sin_addr.S_un.S_addr);
+			*port = htons(ncb->r_addr_.sin_port);
+		} else {
+			retval = -1;
 		}
-
-		*ipv4 = htonl( ncb->r_addr_.sin_addr.S_un.S_addr );
-		*port = htons( ncb->r_addr_.sin_port );
-
-		objdefr( ncb->link );
-		return 0;
 	}
 
-	return -1;
+	objdefr(ncb->link);
+
+	return retval;
 }
 
 int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int len )
@@ -1253,14 +1259,14 @@ int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "[nshost.tcp.tcp_getaddr] fail to reference link:%I64d", lnk );
 		return -1;
 	}
 
 	if ( kProto_TCP == ncb->proto_type_ ) {
 		retval = setsockopt(ncb->sockfd, level, opt, val, len);
 		if ( retval < 0 ) {
-			nis_call_ecr("syscall setsockopt failed,error code=%u", WSAGetLastError());
+			nis_call_ecr("[nshost.tcp.tcp_getaddr]  syscall setsockopt(2) failed,error code:%u, link:%I64d", WSAGetLastError(), ncb->link);
 		}
 	}
 
@@ -1278,14 +1284,14 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr( "fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr( "[nshost.tcp.tcp_getopt] fail to reference link:%I64d", lnk );
 		return -1;
 	}
 
 	if ( kProto_TCP == ncb->proto_type_ ) {
 		retval = getsockopt(ncb->sockfd, level, opt, OptVal, len);
 		if ( retval < 0 ) {
-			nis_call_ecr("syscall failed getsockopt ,error code=%u", WSAGetLastError());
+			nis_call_ecr("[nshost.tcp.tcp_getopt] syscall failed getsockopt ,error code:%u,link:%I64d", WSAGetLastError(), ncb->link);
 		}
 	}
 

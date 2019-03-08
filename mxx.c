@@ -29,7 +29,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "[nshost.mxx.nis_setctx] reference NCB object failed,link=%I64d", lnk );
 		return -1;
 	}
 
@@ -49,7 +49,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 			ncb->ncb_ctx_size_ = ncb_ctx_size;
 			ctx = ( char * ) malloc( ncb_ctx_size );
 			if ( !ctx ) {
-				nis_call_ecr("fail to allocate memory for ncb context, size=%u", ncb_ctx_size);
+				nis_call_ecr("[nshost.mxx.nis_setctx] fail to allocate memory for ncb context, size=%u", ncb_ctx_size);
 				retval = -1;
 				break;
 			}
@@ -70,7 +70,7 @@ int __stdcall nis_getctx( HLNK lnk, void * user_context, int *user_context_size 
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "[nshost.mxx.nis_getctx] reference NCB object failed,link=%I64d", lnk );
 		return -1;
 	}
 
@@ -106,7 +106,7 @@ int __stdcall nis_ctxsize( HLNK lnk )
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "[nshost.mxx.nis_ctxsize] reference NCB object failed,link=%I64d", lnk );
 		return -1;
 	}
 	size = ncb->ncb_ctx_size_;
