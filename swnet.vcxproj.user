@@ -12,7 +12,7 @@
     <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommand>D:\work\git\my\master\swnet-win32\bin\Debug\RemoteMonitor.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommand>D:\work\git\my\master\swnet-win32\bin\Debug\motion_template.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>
     </LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>D:\work\git\my\master\swnet-win32\bin\Debug</LocalDebuggerWorkingDirectory>

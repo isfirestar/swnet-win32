@@ -66,7 +66,7 @@ typedef struct _TCP_INFO_v0 {
 	UCHAR    SynRetrans;
 } TCP_INFO_v0, *PTCP_INFO_v0;
 
-void tcp_shutdwon_by_packet( packet_t * packet );
+void tcp_shutdown_by_packet( packet_t * packet );
 static int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp);
 static int tcp_setmss( ncb_t *ncb, int mss );
 static int tcp_getmss( ncb_t *ncb );
@@ -138,7 +138,7 @@ void tcp_try_write( ncb_t * ncb )
 	同时, 不再需要继续关注后续处理， 不需要释放本包内存和拉伸发送缓冲区
 	*/
 	if ( asio_tcp_send( next_packet ) < 0 ) {
-		tcp_shutdwon_by_packet( next_packet );
+		tcp_shutdown_by_packet( next_packet );
 	}
 
 	LeaveCriticalSection( &ncb->tcp_lst_lock_ );
@@ -456,7 +456,9 @@ int tcp_syn( ncb_t * ncb_listen )
 	tcp_cinit_t ctx;
 	int i = 0;
 
-	if ( !ncb_listen ) return -1;
+	if (!ncb_listen) {
+		return -1;
+	}
 
 	if ( allocate_packet( ncb_listen->link, kProto_TCP, kSyn, TCP_ACCEPT_EXTENSION_SIZE, kVirtualHeap, &syn_packet ) < 0 ) {
 		return -1;
@@ -476,7 +478,9 @@ int tcp_syn( ncb_t * ncb_listen )
 		syn_packet->accepted_link = h;
 
 		// 继续抛送接收链接请求
-		if ( asio_tcp_accept( syn_packet ) >= 0 ) return 0;
+		if (asio_tcp_accept(syn_packet) >= 0) {
+			return 0;
+		}
 
 		// 投递接受链接请求需要保证成功完成
 		// 如果失败， 则关闭本次失败的对端链接， 继续投递接受请求
@@ -609,7 +613,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 
 	// 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接
 	if ( 0 == packet->size_for_translation_ ) {
-		tcp_shutdwon_by_packet( packet );
+		tcp_shutdown_by_packet( packet );
 		return;
 	}
 
@@ -652,7 +656,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	// 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接
 	if ( 0 == packet->size_for_translation_ ) {
-		tcp_shutdwon_by_packet( packet );
+		tcp_shutdown_by_packet( packet );
 		return;
 	}
 
@@ -776,7 +780,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		return;
 	}
 
-	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched on NTSTATUS=0x%08X, lnk:%I64d", status, packet->link );
+	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched, NTSTATUS:0x%08X, lnk:%I64d", status, packet->link );
 
 	// 发送异常需要递减未决请求量
 	if ( kSend == packet->type_ ) {
@@ -791,7 +795,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		// 尝试下一个发送操作
 		tcp_try_write( ncb );
 	} else {
-		tcp_shutdwon_by_packet( packet );
+		tcp_shutdown_by_packet( packet );
 	}
 
 	objdefr( ncb->link );
@@ -828,11 +832,11 @@ void tcp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 
 /*++
 	重要:
-	tcp_shutdwon_by_packet 不是一个应该被经常被调用的过程
+	tcp_shutdown_by_packet 不是一个应该被经常被调用的过程
 	这个函数的调用多用于无法处理的异常， 而且这个函数的调用， 除了会释放包的内存外， 还会关闭包内的ncb_t对象
 	需要谨慎使用
 	--*/
-void tcp_shutdwon_by_packet( packet_t * packet )
+void tcp_shutdown_by_packet( packet_t * packet )
 {
 	ncb_t * ncb;
 
@@ -841,15 +845,12 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 	}
 
 	switch ( packet->type_ ) {
-
 		case kRecv:
 		case kSend:
-		case kConnect: 
-			{
-				objclos(packet->link);
-				freepkt( packet );
-			}
-			nis_call_ecr("[nshost.tcp.tcp_shutdwon_by_packet] shutdown type:%d link:%I64d", packet->type_, packet->link);
+		case kConnect:
+			nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] type:%d link:%I64d", packet->type_, packet->link);
+			objclos(packet->link);
+			freepkt( packet );
 			break;
 
 			//
@@ -859,16 +860,17 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 			// 3. 重新扔出一个accept请求
 			//
 		case kSyn:
-			{
-				objclos(packet->accepted_link);
-				freepkt( packet );
-
-				if (tcprefr(packet->link, &ncb) >= 0) {
-					tcp_syn( ncb );
-					objdefr( ncb->link );
-				}
-				nis_call_ecr("[nshost.tcp.tcp_shutdwon_by_packet] shutdown type:%d link:%I64d", packet->type_, packet->link);
+			nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] accept link:%I64d, listen link:%I64d", packet->type_, packet->accepted_link, packet->link);
+			
+			if (tcprefr(packet->link, &ncb) >= 0) {
+				tcp_syn( ncb );
+				objdefr( ncb->link );
+			} else {
+				nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] fail reference listen object link:%d", packet->link);
 			}
+
+			objclos(packet->accepted_link);
+			freepkt(packet);
 			break;
 
 		default:
