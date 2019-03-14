@@ -866,7 +866,7 @@ void tcp_shutdown_by_packet( packet_t * packet )
 				tcp_syn( ncb );
 				objdefr( ncb->link );
 			} else {
-				nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] fail reference listen object link:%d", packet->link);
+				nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] fail reference listen object link:%I64d", packet->link);
 			}
 
 			objclos(packet->accepted_link);
