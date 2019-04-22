@@ -12,14 +12,14 @@ typedef void( *object_unload_t )( objhld_t h, void * user_buffer );
 
 typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 {
-	objhld_t					link;								
+	objhld_t					link;
 	SOCKET						sockfd;
-	enum proto_type_t			proto_type_;			
-	union	{											
+	enum proto_type_t			proto_type_;
+	union	{
 		udp_io_callback_t		udp_callback_;
 		tcp_io_callback_t		tcp_callback_;
 	};
-	struct {											
+	struct {
 		struct sockaddr_in		l_addr_;				// 本地地址信息记录
 		struct sockaddr_in		r_addr_;				// 对端地址信息记录
 	};
@@ -42,7 +42,7 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 		int						lb_cpy_offset_;				// 当前已经赋值的大包数据段偏移
 		int						lb_length_;					// 当前大包缓冲区长度
 	};
-	struct {											
+	struct {
 		struct list_head		tcp_waitting_list_head_;	// TCP等待发送包链
 		CRITICAL_SECTION		tcp_lst_lock_;				// TCP的包链锁
 		int						tcp_usable_sender_cache_;	// (这个链上的) 下层可用缓冲区字节数
@@ -50,7 +50,7 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 		tst_t					tcp_tst_;					// TCP(属于这个链的)协议解析模板
         int						mss;						/* MSS of tcp link */
 	};
-	struct {											
+	struct {
 		void *					ncb_ctx_;					// 用户上下文
 		int						ncb_ctx_size_;				// 用户上下文长度
 	};

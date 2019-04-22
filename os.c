@@ -1,4 +1,4 @@
-#include "os.h"
+﻿#include "os.h"
 #include "mxx.h"
 
 void *
@@ -8,23 +8,23 @@ uint32_t blockSizeCb,
 uint32_t Protect
 )
 /*
-*	���ڴ��������ͷ�
-*	Size[_In_]		�����ڴ���С
+*	块内存的申请和释放
+*	Size[_In_]		申请内存块大小
 *
-*	RET				���ر������ύ�������ڴ��ַָ��
-*      					��������ʧ�ܷ���NULL
+*	RET				返回保留并提交的虚拟内存地址指针
+*      					函数操作失败返回NULL
 *
-*	����Ҫ�������ڴ泤��Ϊ PAGE_SIZE ����
-*	���������ڽϴ����ڴ����룬 �ÿ��ڴ�������������Ӧ���� PAGE_SIZE ��С
-*  ����������Ⱥ� PAGE_SIZE �����룬 ���Բ�ȡ�������룬 Ȼ������Ĵ�ʩ
-*	С���ڴ�ʹ������������ÿ��ܻ�Ӱ������
-*	ʹ���������������ڴ�飬 Ӧ����ʽ���� PubFreeMemoryBlock �����ͷ�
+*	调用要求申请内存长度为 PAGE_SIZE 对齐
+*	函数适用于较大块的内存申请， 该块内存期望长度至少应该是 PAGE_SIZE 大小
+*  如果期望长度和 PAGE_SIZE 不对齐， 可以采取对齐申请， 然后截留的措施
+*	小块内存使用这个函数调用可能会影响性能
+*	使用这个函数申请的内存块， 应该显式调用 PubFreeMemoryBlock 进行释放
 */
 {
 	void *		MemoryBlock;
 
 	//
-	// ���뱣֤���볤����ҳ����
+	// 必须保证申请长度是页对齐
 	//
 	if ( !os_is_page_aligned( blockSizeCb ) ) {
 		return NULL;
@@ -81,10 +81,10 @@ os_unlock_and_free_virtual_pages(
 }
 
 /*++
-������߽�ָ���ڴ������Ϊ�Ƿ�Ҳ����
-pMemoryBlock[_In_]		��Ҫ����Ϊ�Ƿ�ҳ�ص������ڴ��ַ, �������ΪNULL, ������һƬ�µĵ�ַ
-Size[_In_]					��Ҫ������������ڴ���С�� ����ҳ����
-RET						�����ɹ���������������������Ļ�����ָ�룬 ʧ�ܷ��� NULL
+申请或者将指定内存块提升为非分也缓冲
+pMemoryBlock[_In_]		需要提升为非分页池的虚拟内存地址, 如果参数为NULL, 则申请一片新的地址
+Size[_In_]					需要提升或申请的内存块大小， 必须页对齐
+RET						操作成功返回提升或申请后提升的缓冲区指针， 失败返回 NULL
 --*/
 void *
 os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
@@ -99,8 +99,8 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 	LoopFlag = TRUE;
 
 	//
-	// �������ʹ�ÿտ飬 ����ϣ����������һ���¿�
-	// ���������ʹ�ÿտ飬 ��Ӧ���жϴ����Ĵ�С�Ƿ�ҳ����
+	// 如果参数使用空块， 则是希望函数创建一个新块
+	// 如果参数不使用空块， 则应该判断传入块的大小是否页对齐
 	//
 	if ( NULL == MemoryBlock ) {
 		if ( NULL == ( MemoryBlock = os_allocate_block(GetCurrentProcess(), Size, PAGE_READWRITE) ) ) {
@@ -119,16 +119,16 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 		}
 
 		//
-		// ����ǹ��������㵼�µ����������ڴ浽����ҳʧ��
-		// ��ʱӦ�õ������̵Ĺ������ռ�����
-		// ������������� ֱ���˳�
+		// 如果是工作集配额不足导致的锁定虚拟内存到物理页失败
+		// 此时应该调整进程的工作集空间设置
+		// 如果是其他错误， 直接退出
 		//
 		errorCode = GetLastError();
 		if ( ERROR_WORKING_SET_QUOTA != errorCode ) {
 			//
-			// �������Ȩ��ʧ�ܣ� ������ pMemoryBlock ���ⲿ����, �����Ǳ����������ڴ棬 ���Ҹ�Ƭ�ڴ�û�������ύ
-			// ����ֻ��Ҫ�����ύ��Ƭ�����ڴ棬 Ȼ������ִ�м���
-			// Ϊ�˱�֤���ᷢ����ѭ���� �����Ĳ���ִֻ��һ��
+			// 如果是无权限失败， 可能是 pMemoryBlock 由外部传入, 但是是保留的虚拟内存， 而且该片内存没有虚拟提交
+			// 这里只需要重新提交该片虚拟内存， 然后重新执行即可
+			// 为了保证不会发生死循环， 这样的操作只执行一次
 			//
 			if ( ERROR_NOACCESS == errorCode && LoopFlag ) {
 				__try {
@@ -154,17 +154,17 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 		}
 
 		//
-		// ����Ѿ��������������ռ䣬 ��Ȼ�޷����ڴ��������Ƿ�Ҳ�����
-		// ��ʱ����ֱ��ʧ��
-		// ����ʹ�õ�ǰ���̾���Ƿ�Ϊ��Ч�� ��Ϊ�жϵ��ε���������������
+		// 如果已经调整过工作集空间， 仍然无法将内存锁定到非分也缓冲池
+		// 此时可以直接失败
+		// 函数使用当前进程句柄是否为有效， 作为判断单次调整工作集的条件
 		//
 		if ( INVALID_HANDLE_VALUE == handleProcess ) {
 
 			//
-			// �� :
-			// PROCESS_QUERY_INFORMATION(��ѯ���������ڴ���Ϣ) 
-			// PROCESS_SET_QUOTA (���ù��������)
-			// �ķ�ʽ�򿪵�ǰ���̾��
+			// 以 :
+			// PROCESS_QUERY_INFORMATION(查询工作集和内存信息)
+			// PROCESS_SET_QUOTA (设置工作集配额)
+			// 的方式打开当前进程句柄
 			//
 			handleProcess = OpenProcess(
 				PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA | PROCESS_VM_READ,
@@ -178,7 +178,7 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 		}
 
 		//
-		// ����������Ҫ�鿴��ǰ���̵Ĺ�������С�� ����ȷ���Ƿ����
+		// 这里首先需要查看当前进程的工作集大小， 用于确定是否可行
 		//
 		Successful = GetProcessWorkingSetSize(
 			handleProcess,
@@ -191,8 +191,8 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 		}
 
 		//
-		// ������������С�� Ҫ�����ù�������СΪ��
-		// ����������С�����й�������С֮��
+		// 调整工作集大小， 要求设置工作集大小为：
+		// 本次申请块大小和现有工作集大小之和
 		//
 		MinimumWorkingSetSize += Size;
 		MaximumWorkingSetSize += Size;

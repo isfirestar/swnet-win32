@@ -52,14 +52,14 @@ static DWORD WINAPI __iorun(LPVOID p)
 		if ( !successful ) {
 			if ( ovlp ) {
 				/*
-				If *lpOverlapped is not NULL and the function dequeues a completion packet for a failed I/O operation from the completion port, 
-				the function stores information about the failed operation in the variables pointed to by lpNumberOfBytes, lpCompletionKey, and lpOverlapped. 
+				If *lpOverlapped is not NULL and the function dequeues a completion packet for a failed I/O operation from the completion port,
+				the function stores information about the failed operation in the variables pointed to by lpNumberOfBytes, lpCompletionKey, and lpOverlapped.
 				*/
-				so_dispatch_io_event( ovlp, bytes_transfered );		
+				so_dispatch_io_event( ovlp, bytes_transfered );
 			} else {
 				/*
 				If *lpOverlapped is NULL, the function did not dequeue a completion packet from the completion port
-				In this case, 
+				In this case,
 				the function does not store information in the variables pointed to by the lpNumberOfBytes and lpCompletionKey parameters, and their values are indeterminate.
 				*/
 				continue; // 本次IO失败， 不代表线程应该错误, 不需要退出线程
@@ -71,7 +71,7 @@ static DWORD WINAPI __iorun(LPVOID p)
 			}
 
 			// 投递处理IO事件
-			so_dispatch_io_event( ovlp, bytes_transfered );		
+			so_dispatch_io_event( ovlp, bytes_transfered );
 		}
 	}
 
@@ -145,10 +145,11 @@ int ioatth(void *ncbptr) {
 	epos = &epmgr.epos[ncb->link % epmgr.divisions];
 	bind_iocp = CreateIoCompletionPort((HANDLE)ncb->sockfd, epos->epfd, (ULONG_PTR)NULL, 0);
 	if ((bind_iocp) && (bind_iocp == epos->epfd)) {
+		nis_call_ecr("[nshost.io.ioatth] success associate sockfd:%d with epfd:%d, link:%I64d", ncb->sockfd, epos->epfd, ncb->link);
 		return 0;
 	}
 
-	nis_call_ecr("[nshost.io.ioattach]:link:%I64u syscall failed, error code=%u", ncb->link, GetLastError());
+	nis_call_ecr("[nshost.io.ioattach] link:%I64u syscall CreateIoCompletionPort failed, error code=%u", ncb->link, GetLastError());
 	return -1;
 }
 

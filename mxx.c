@@ -1,4 +1,4 @@
-#include "network.h"
+ï»¿#include "network.h"
 #include "ncb.h"
 #include "packet.h"
 #include "mxx.h"
@@ -19,7 +19,7 @@
 	--*/
 
 //---------------------------------------------------------------------------------------------------------------------------------------------------------
-// ÆäËûMXXÏà¹Ø ²¿·Ö																				
+// å…¶ä»–MXXç›¸å…³ éƒ¨åˆ†
 //---------------------------------------------------------------------------------------------------------------------------------------------------------
 int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 {
@@ -36,14 +36,14 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 	do {
 		retval = 0;
 
-		// Ö¸¶¨¿ÕÖ¸Õë¿ÉÒÔÇå¿ÕÏÖÓĞµÄÉÏÏÂÎÄ
+		// æŒ‡å®šç©ºæŒ‡é’ˆå¯ä»¥æ¸…ç©ºç°æœ‰çš„ä¸Šä¸‹æ–‡
 		if ( !ncb_ctx || 0 == ncb_ctx_size ) {
 			if ( ncb->ncb_ctx_ ) free( ncb->ncb_ctx_ );
 			ncb->ncb_ctx_size_ = 0;
 			break;
 		}
 
-		// Èç¹ûÒªÇóÉèÖÃµÄÉÏÏÂÎÄºÍµ±Ç°ÉÏÏÂÎÄ´óĞ¡²»Ò»ÖÂ£¬ Ôò¸²¸Çµ±Ç°ÉÏÏÂÎÄ
+		// å¦‚æœè¦æ±‚è®¾ç½®çš„ä¸Šä¸‹æ–‡å’Œå½“å‰ä¸Šä¸‹æ–‡å¤§å°ä¸ä¸€è‡´ï¼Œ åˆ™è¦†ç›–å½“å‰ä¸Šä¸‹æ–‡
 		if ( ncb_ctx_size != ncb->ncb_ctx_size_ ) {
 			if ( ncb->ncb_ctx_ ) free( ncb->ncb_ctx_ );
 			ncb->ncb_ctx_size_ = ncb_ctx_size;
@@ -148,17 +148,17 @@ int __stdcall nis_gethost( const char *name, uint32_t *ipv4 ) {
 
     if (!remote) {
 		return -1;
-    } 
+    }
 
-	/* Ä¿Ç°½öÖ§³Ö IPv4 */
+	/* ç›®å‰ä»…æ”¯æŒ IPv4 */
 	if ( AF_INET != remote->h_addrtype ) {
 		return -1;
 	}
-	
+
 	if ( remote->h_length < sizeof( uint32_t ) ) {
         return -1;
     }
-    
+
     addr.s_addr = *((uint32_t *) remote->h_addr_list[0]);
     *ipv4 = ntohl(addr.s_addr);
 	return 0;

@@ -1,4 +1,4 @@
-#include "network.h"
+ï»¿#include "network.h"
 #include "ncb.h"
 
 #include "mxx.h"
@@ -6,21 +6,21 @@
 #include <assert.h>
 
 /*++
-	ÖØÒª:
+	é‡è¦:
 
-	ÎÞ·¨´¦ÀíµÄÒì³£:
-	¼ÙÈç¶Ô¶ËÓÐÒ»¸ösocket³É¹¦accept±¾µØconnectÉÏÈ¥µÄsocketºó£¬ ²»µ÷ÓÃrecvÊÕÈ¡Êý¾Ý£¬ÀíÂÛÉÏ£¬±¾µØ·¢ËÍ»º³åÇøÂúºóÒç³ö£¬ »òÕß[TCP WINDOW]Âúºó£¬ ±¾µØµ÷ÓÃ[WSASend]Ó¦¸ÃµÃµ½Ò»¸öÊ§°Ü
-	µ«ÊÇÊÂÊµÖ¤Ã÷²»»á£¬ ²Ù×÷ÏµÍ³»áÎÞÐÝÖ¹µÄ½ÓÊÕWSASendµÄÒì²½ÇëÇó£¬ ËäÈ»IRPÎÞ·¨±»Íê³É£¬ µ«ÊÇÔÊÐíÎÞÏÞ¶Ñ»ý£¬ ×îÖÕµ¼ÖÂÏµÍ³±ÀÀ£
-	¸ü¼ÓÑÏÖØµÄºó¹ûÊÇ£¬ ÒòÎª[TCP WINDOW]ÒÑ¾­Îª0£¬ ¼´Ê¹´ËÊ±¶Ô¶Ë¶Ï¿ªÁ´½Ó£¬ ±¾µØÒ²ÎÞ·¨ÊÕµ½ fin ack µÄÓ¦´ð£¬  ²»»áµÃµ½IOCP¶ÔWSASendµ÷ÓÃÕßµÄÍ¨Öª£¬ Õâ»áµ¼ÖÂ³ÌÐòºÜ¿ìµÄËÀÍö
-	ÎªÁË±ÜÃâÕâ¸öÎÊÌâ£¬ ÔÚÃ»ÓÐ¸ü±ê×¼µÄ·½·¨½â¾öÇ°£¬ Ö»ÄÜÏÞÖÆÃ¿¸öÁ´½ÓµÄ´°¿ÚÊý£¬ ÔÚÒ»¶¨²ã¶ÈÉÏ±£Ö¤°²È«ÐÔ
+	æ— æ³•å¤„ç†çš„å¼‚å¸¸:
+	å‡å¦‚å¯¹ç«¯æœ‰ä¸€ä¸ªsocketæˆåŠŸacceptæœ¬åœ°connectä¸ŠåŽ»çš„socketåŽï¼Œ ä¸è°ƒç”¨recvæ”¶å–æ•°æ®ï¼Œç†è®ºä¸Šï¼Œæœ¬åœ°å‘é€ç¼“å†²åŒºæ»¡åŽæº¢å‡ºï¼Œ æˆ–è€…[TCP WINDOW]æ»¡åŽï¼Œ æœ¬åœ°è°ƒç”¨[WSASend]åº”è¯¥å¾—åˆ°ä¸€ä¸ªå¤±è´¥
+	ä½†æ˜¯äº‹å®žè¯æ˜Žä¸ä¼šï¼Œ æ“ä½œç³»ç»Ÿä¼šæ— ä¼‘æ­¢çš„æŽ¥æ”¶WSASendçš„å¼‚æ­¥è¯·æ±‚ï¼Œ è™½ç„¶IRPæ— æ³•è¢«å®Œæˆï¼Œ ä½†æ˜¯å…è®¸æ— é™å †ç§¯ï¼Œ æœ€ç»ˆå¯¼è‡´ç³»ç»Ÿå´©æºƒ
+	æ›´åŠ ä¸¥é‡çš„åŽæžœæ˜¯ï¼Œ å› ä¸º[TCP WINDOW]å·²ç»ä¸º0ï¼Œ å³ä½¿æ­¤æ—¶å¯¹ç«¯æ–­å¼€é“¾æŽ¥ï¼Œ æœ¬åœ°ä¹Ÿæ— æ³•æ”¶åˆ° fin ack çš„åº”ç­”ï¼Œ  ä¸ä¼šå¾—åˆ°IOCPå¯¹WSASendè°ƒç”¨è€…çš„é€šçŸ¥ï¼Œ è¿™ä¼šå¯¼è‡´ç¨‹åºå¾ˆå¿«çš„æ­»äº¡
+	ä¸ºäº†é¿å…è¿™ä¸ªé—®é¢˜ï¼Œ åœ¨æ²¡æœ‰æ›´æ ‡å‡†çš„æ–¹æ³•è§£å†³å‰ï¼Œ åªèƒ½é™åˆ¶æ¯ä¸ªé“¾æŽ¥çš„çª—å£æ•°ï¼Œ åœ¨ä¸€å®šå±‚åº¦ä¸Šä¿è¯å®‰å…¨æ€§
 
-	ÊµÑéÖ¤Ã÷£¬ ¼´Ê¹·¢ÉúÁËÉÏÊöÒì³£Çé¿ö£¬ ±¾µØclosesocketµÄµ÷ÓÃ£¬ ¿ÉÒÔ»Ö¸´Òì³££¬ ²¢µÃµ½Ò»¸öSTATUS_LOCAL_DISCONNECT(0xC000013B)µÄ½á¹û£¬ Òò´Ë£¬ Ö»Òª±£Ö¤³ÌÐò²»ÔÚ·¢ÉúÒì³£½×¶Î±ÀÀ£
-	¾ÍºÃÓÐÍì»ØÓàµØ
+	å®žéªŒè¯æ˜Žï¼Œ å³ä½¿å‘ç”Ÿäº†ä¸Šè¿°å¼‚å¸¸æƒ…å†µï¼Œ æœ¬åœ°closesocketçš„è°ƒç”¨ï¼Œ å¯ä»¥æ¢å¤å¼‚å¸¸ï¼Œ å¹¶å¾—åˆ°ä¸€ä¸ªSTATUS_LOCAL_DISCONNECT(0xC000013B)çš„ç»“æžœï¼Œ å› æ­¤ï¼Œ åªè¦ä¿è¯ç¨‹åºä¸åœ¨å‘ç”Ÿå¼‚å¸¸é˜¶æ®µå´©æºƒ
+	å°±å¥½æœ‰æŒ½å›žä½™åœ°
 
-	ÓÉÓÚÈÎºÎÔ­Òòµ¼ÖÂµÄPENDING¸öÊý¸ßÓÚ NCB_MAXIMUM_TCP_SENDER_IRP_PEDNING_COUNT, tcp_write ¹ý³Ìµ÷ÓÃ½«»áÖ±½Ó·µ»ØÊ§°Ü
+	ç”±äºŽä»»ä½•åŽŸå› å¯¼è‡´çš„PENDINGä¸ªæ•°é«˜äºŽ NCB_MAXIMUM_TCP_SENDER_IRP_PEDNING_COUNT, tcp_write è¿‡ç¨‹è°ƒç”¨å°†ä¼šç›´æŽ¥è¿”å›žå¤±è´¥
 
 	(2016-05-26)
-	¶Ô TCP ·¢ËÍ»º³åÇø×÷³¤¶ÈÏÞÖÆ£¬ÔÚ´ïµ½Ö¸¶¨³¤¶ÈÖ®Ç°£¬¾ù¿ÉÒÔ½«»º³åÇøÍ¶µÝ¸ø²Ù×÷ÏµÍ³, Ïê¼û ncb_t::tcp_usable_sender_cache_ µÄÊ¹ÓÃ
+	å¯¹ TCP å‘é€ç¼“å†²åŒºä½œé•¿åº¦é™åˆ¶ï¼Œåœ¨è¾¾åˆ°æŒ‡å®šé•¿åº¦ä¹‹å‰ï¼Œå‡å¯ä»¥å°†ç¼“å†²åŒºæŠ•é€’ç»™æ“ä½œç³»ç»Ÿ, è¯¦è§ ncb_t::tcp_usable_sender_cache_ çš„ä½¿ç”¨
 	--*/
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,13 +65,13 @@ int ncb_mark_lb( ncb_t *ncb, int cb, int current_size, void * source )
 		nis_call_ecr( "[nshost.ncb.ncb_mark_lb] fail to allocate memory for ncb->lb_data_, request size=%u", cb );
 		return -1;
 	}
-	
+
 	ncb->lb_cpy_offset_ = current_size;
 	if (0 == current_size) {
 		return 0;
 	}
-	
-	/* ÉêÇëµÄÍ¬Ê±ÓÐÊý¾ÝÐèÒª¿½±´ */
+
+	/* ç”³è¯·çš„åŒæ—¶æœ‰æ•°æ®éœ€è¦æ‹·è´ */
 	memcpy( ncb->lb_data_, source, ncb->lb_cpy_offset_ );
 	return 0;
 }
@@ -87,7 +87,7 @@ void ncb_unmark_lb( ncb_t *ncb )
 			}
 			ncb->lb_cpy_offset_ = 0;
 		}
-		
+
 		ncb->lb_length_ = 0;
 	}
 }
@@ -142,7 +142,7 @@ int ncb_set_window_size(ncb_t *ncb, int dir, int size){
     if (ncb){
         return setsockopt(ncb->sockfd, SOL_SOCKET, dir, (const void *)&size, sizeof(size));
     }
-    
+
      return -EINVAL;
 }
 
@@ -153,17 +153,17 @@ int ncb_get_window_size(ncb_t *ncb, int dir, int *size){
             return -1;
         }
     }
-    
+
      return -EINVAL;
 }
 
 int ncb_set_linger(ncb_t *ncb, int onoff, int lin){
     struct linger lgr;
-    
+
     if (!ncb){
         return -EINVAL;
     }
-    
+
     lgr.l_onoff = onoff;
     lgr.l_linger = lin;
     return setsockopt(ncb->sockfd, SOL_SOCKET, SO_LINGER, (char *) &lgr, sizeof ( struct linger));
@@ -184,11 +184,11 @@ int ncb_get_linger(ncb_t *ncb, int *onoff, int *lin) {
     if (onoff){
         *onoff = lgr.l_onoff;
     }
-    
+
     if (lin){
         *lin = lgr.l_linger;
     }
-    
+
     return 0;
 }
 

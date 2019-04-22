@@ -1,4 +1,4 @@
-#include "network.h"
+ï»¿#include "network.h"
 #include "ncb.h"
 #include "packet.h"
 #include "io.h"
@@ -13,7 +13,8 @@ typedef struct _udp_cinit {
 }udp_cinit_t;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void udp_shutdown( packet_t * packet );
+static
+void udp_shutdown_by_packet( packet_t * packet );
 static
 int udp_set_boardcast( ncb_t *ncb, int enable );
 static
@@ -55,11 +56,11 @@ static void udp_dispatch_io_recv( packet_t *packet )
 		return;
 	}
 
-	// Ìî³ä½ÓÊÕÊı¾İÊÂ¼ş
+	// å¡«å……æ¥æ”¶æ•°æ®äº‹ä»¶
 	c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
 	c_event.Event = EVT_RECEIVEDATA;
 
-	// Í¨Öª½ÓÊÕÊÂ¼ş
+	// é€šçŸ¥æ¥æ”¶äº‹ä»¶
 	c_data.e.Packet.Size = packet->size_for_translation_;
 	c_data.e.Packet.Data = ( const char * ) packet->irp_;
 	c_data.e.Packet.RemotePort = ntohs( packet->r_addr_.sin_port );
@@ -68,8 +69,8 @@ static void udp_dispatch_io_recv( packet_t *packet )
 	}
 	ncb_callback( ncb, &c_event, ( void * ) &c_data );
 
-	// Õâ¸öÊ±ºòÒÑ¾­ÊÇÍê³ÉÁË´¦Àí, ¼ÌĞø½«Ò»¸öÒì²½µÄ IRP Í¶µİÏÂÈ¥
-	// ±¾´Î²Ù×÷£¬ °üÀ¨»º³åÇøÔÚÄÚµÄÒ»ÇĞ¶«Î÷¶¼¿ÉÒÔºöÂÔÁË
+	// è¿™ä¸ªæ—¶å€™å·²ç»æ˜¯å®Œæˆäº†å¤„ç†, ç»§ç»­å°†ä¸€ä¸ªå¼‚æ­¥çš„ IRP æŠ•é€’ä¸‹å»
+	// æœ¬æ¬¡æ“ä½œï¼Œ åŒ…æ‹¬ç¼“å†²åŒºåœ¨å†…çš„ä¸€åˆ‡ä¸œè¥¿éƒ½å¯ä»¥å¿½ç•¥äº†
 	packet->size_for_translation_ = 0;
 	asio_udp_recv( packet );
 
@@ -87,36 +88,31 @@ static void udp_dispatch_io_send( packet_t * packet )
 static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 {
 	ncb_t *ncb;
-	int close = 1;
 
-	if ( !packet ) return;
+	if ( !packet ) {
+		return;
+	}
 
 	if (udprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] fail to reference link:%I64d", packet->link);
 		return;
 	}
 
-	nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] NTSTATUS=0x%08X,link:%I64d", status, packet->link);
-
-	if ( kRecv == packet->type_ ) {
-		/* ¶Ô STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE ×´Ì¬×ö¹ıÂË
-		   ±ÜÃâÕâ¼¸ÖÖ ICMP PORT UNREACHABLE µ¼ÖÂUDPÊÕ°üPENDINGºÄ½ß£¬ ÕâÀïÔÙ´ÎÍ¶µİkRecvÇëÇó
-		   ²¢ÇÒ²»¹Ø±ÕÕâ¸öÁ´½Ó
-		 */
-		if (status == STATUS_PORT_UNREACHABLE || 
-			status == STATUS_PROTOCOL_UNREACHABLE || 
-			status == STATUS_HOST_UNREACHABLE) {
-			packet->size_for_translation_ = 0;
-			asio_udp_recv(packet);
-			close = 0;
-		}
+	/* å¯¹ STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE çŠ¶æ€åšè¿‡æ»¤
+	   é¿å…è¿™å‡ ç§ ICMP PORT UNREACHABLE å¯¼è‡´UDPæ”¶åŒ…PENDINGè€—ç«­ï¼Œ è¿™é‡Œå†æ¬¡æŠ•é€’kRecvè¯·æ±‚
+	   å¹¶ä¸”ä¸å…³é—­è¿™ä¸ªé“¾æ¥
+	 */
+	if (status == STATUS_PORT_UNREACHABLE ||
+		status == STATUS_PROTOCOL_UNREACHABLE ||
+		status == STATUS_HOST_UNREACHABLE) {
+		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] type:%d, NTSTATUS:0x%08X,link:%I64d", packet->type_, status, packet->link);
+		packet->size_for_translation_ = 0;
+		asio_udp_recv(packet);
+	} else {
+		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] type:%d, NTSTATUS:0x%08X,link:%I64d, this link will be shutdown", packet->type_, status, packet->link);
+		udp_shutdown_by_packet(packet);
 	}
 	objdefr(ncb->link);
-
-   /* ÈÎºÎÆäËûÒì³£¶¼¹Ø±ÕUDP¶ÔÏó */
-	if (close) {
-		udp_shutdown(packet);
-	}
 }
 
 static int udp_update_opts(ncb_t *ncb) {
@@ -155,12 +151,12 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 			break;
 		}
 
-		// Ö±½ÓÌîĞ´µØÖ·½á¹¹
+		// ç›´æ¥å¡«å†™åœ°å€ç»“æ„
 		ncb->l_addr_.sin_family = AF_INET;
 		ncb->l_addr_.sin_addr.S_un.S_addr = ctx->ipv4_;
 		ncb->l_addr_.sin_port = ctx->port_;
 
-		// Èç¹û²ÉÓÃËæ»ú¶Ë¿Ú°ó¶¨£¬ ÔòÓ¦¸Ã»ñÈ¡ÕæÊµµÄ°ó¶¨¶Ë¿Ú
+		// å¦‚æœé‡‡ç”¨éšæœºç«¯å£ç»‘å®šï¼Œ åˆ™åº”è¯¥è·å–çœŸå®çš„ç»‘å®šç«¯å£
 		if ( 0 == ctx->port_ ) {
 			int len = sizeof( conn_addr );
 			if (getsockname(ncb->sockfd, (SOCKADDR*)&conn_addr, &len) >= 0) {
@@ -168,10 +164,10 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 			}
 		}
 
-		// ÉèÖÃÒ»Ğ©Ì×½Ó×Ö²ÎÊı
+		// è®¾ç½®ä¸€äº›å¥—æ¥å­—å‚æ•°
 		udp_update_opts( ncb );
 
-		// UDP±ê¼Ç
+		// UDPæ ‡è®°
 		if ( ctx->ncb_flag_ &  UDP_FLAG_BROADCAST ) {
 			if ( udp_set_boardcast( ncb, 1 ) < 0 ) {
 				break;
@@ -183,18 +179,18 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
             }
         }
 
-		// ¹Ø±ÕÒò¶Ô¶Ë±»Ç¿ÖÆÎŞĞ§»¯£¬µ¼ÖÂµÄ±¾µØ io ´íÎó
-		// ÕâÏîÊôĞÔ´ò¿ªÇéĞÎÏÂ»áµ¼ÖÂ WSAECONNRESET ´íÎó·µ»Ø
+		// å…³é—­å› å¯¹ç«¯è¢«å¼ºåˆ¶æ— æ•ˆåŒ–ï¼Œå¯¼è‡´çš„æœ¬åœ° io é”™è¯¯
+		// è¿™é¡¹å±æ€§æ‰“å¼€æƒ…å½¢ä¸‹ä¼šå¯¼è‡´ WSAECONNRESET é”™è¯¯è¿”å›
 		behavior = -1;
 		if (WSAIoctl(ncb->sockfd, SIO_UDP_CONNRESET, &behavior, sizeof(behavior), NULL, 0, &bytes_returned, NULL, NULL) < 0) {
 			nis_call_ecr("[nshost.udp.udp_entry] syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u,link:%I64d", WSAGetLastError(), ncb->link);
 			break;
 		}
 
-		// ½«¶ÔÏó°ó¶¨µ½Òì²½IOµÄÍê³É¶Ë¿Ú
+		// å°†å¯¹è±¡ç»‘å®šåˆ°å¼‚æ­¥IOçš„å®Œæˆç«¯å£
 		if (ioatth(ncb) < 0) break;
 
-		// »Øµ÷ÓÃ»§µØÖ·£¬ Í¨Öªµ÷ÓÃÏß³Ì£¬ UDP ×Ó¶ÔÏóÒÑ¾­´´½¨Íê³É
+		// å›è°ƒç”¨æˆ·åœ°å€ï¼Œ é€šçŸ¥è°ƒç”¨çº¿ç¨‹ï¼Œ UDP å­å¯¹è±¡å·²ç»åˆ›å»ºå®Œæˆ
 		ncb_set_callback( ncb, ctx->f_user_callback_ );
 
 		return 0;
@@ -213,21 +209,25 @@ static void udp_unload( objhld_t h, void * user_buffer )
 
 	if ( !user_buffer ) return;
 
-	// ¹Ø±ÕÇ°ÊÂ¼ş
+	// å…³é—­å‰äº‹ä»¶
 	c_event.Ln.Udp.Link = ( HUDPLINK ) h;
 	c_event.Event = EVT_PRE_CLOSE;
 	c_data.e.LinkOption.OptionLink = ( HUDPLINK ) h;
 	ncb_callback( ncb, &c_event, &h );
 
-	// ¹Ø±ÕÄÚ²¿Ì×½Ó×Ö
+	// å…³é—­å†…éƒ¨å¥—æ¥å­—
 	ioclose(ncb);
 
-	// ¹Ø±ÕºóÊÂ¼ş
+	// å…³é—­åäº‹ä»¶
 	c_event.Event = EVT_CLOSED;
 	ncb_callback( ncb, &c_event, &h );
 
-	// ÊÍ·ÅÓÃ»§ÉÏÏÂÎÄÊı¾İÖ¸Õë
-	if ( ncb->ncb_ctx_ && 0 != ncb->ncb_ctx_size_ ) free( ncb->ncb_ctx_ );
+	// é‡Šæ”¾ç”¨æˆ·ä¸Šä¸‹æ–‡æ•°æ®æŒ‡é’ˆ
+	if ( ncb->ncb_ctx_ && 0 != ncb->ncb_ctx_size_ ) {
+		free( ncb->ncb_ctx_ );
+	}
+
+	nis_call_ecr("[nshost.udp.udp_unload] object:%I64d finalization released", ncb->link);
 }
 
 static objhld_t udp_allocate_object(const udp_cinit_t *ctx) {
@@ -259,13 +259,15 @@ static packet_t **udp_allocate_recv_array( objhld_t h, int cnt )
 	int i;
 	int a_size = sizeof( packet_t * ) * cnt;
 
-	// ÓÃ¶à¸ö°üÀ´¼ÇÂ¼ÉêÇëÄÚ´æ¹ı³Ì¿ÉÄÜ´æÔÚµÄÒì³£
+	// ç”¨å¤šä¸ªåŒ…æ¥è®°å½•ç”³è¯·å†…å­˜è¿‡ç¨‹å¯èƒ½å­˜åœ¨çš„å¼‚å¸¸
 	pkt_array = ( packet_t ** ) malloc( a_size );
-	if ( !pkt_array ) return NULL;
+	if ( !pkt_array ) {
+		return NULL;
+	}
 	memset( pkt_array, 0, a_size );
 
-	// ¶ÔÓÚÃ¿¸ö UDP ¶ÔÏó£¬ ¶¼»áÓĞÒ»¿é 8KB µÄÊı¾İÔÚÒì²½µÈ´ıÖĞ
-	// ÎªÁË±ÜÃâÕâ¿éÄÚ´æµÄÈ±Ò³Ó°ÏìĞÔÄÜ£¬ ÕâÀï½«¸ÃÆ¬ÄÚ´æÌáÉıÎª·Ç·ÖÒ³³Ø
+	// å¯¹äºæ¯ä¸ª UDP å¯¹è±¡ï¼Œ éƒ½ä¼šæœ‰ä¸€å— 8KB çš„æ•°æ®åœ¨å¼‚æ­¥ç­‰å¾…ä¸­
+	// ä¸ºäº†é¿å…è¿™å—å†…å­˜çš„ç¼ºé¡µå½±å“æ€§èƒ½ï¼Œ è¿™é‡Œå°†è¯¥ç‰‡å†…å­˜æå‡ä¸ºéåˆ†é¡µæ± 
 	for ( i = 0; i < cnt; i++ ) {
 		retval = allocate_packet( h, kProto_UDP, kRecv, PAGE_SIZE, kNonPagedPool, &pkt_array[i] );
 		if ( retval < 0 ) {
@@ -273,7 +275,7 @@ static packet_t **udp_allocate_recv_array( objhld_t h, int cnt )
 		}
 	}
 
-	// ÉêÇë¹ı³Ì·¢Éú´íÎó£¬ Ó¦¸Ã»á¹ö²¢ÊÍ·ÅËùÓĞµÄ°üÄÚ´æ
+	// ç”³è¯·è¿‡ç¨‹å‘ç”Ÿé”™è¯¯ï¼Œ åº”è¯¥ä¼šæ»šå¹¶é‡Šæ”¾æ‰€æœ‰çš„åŒ…å†…å­˜
 	if ( retval < 0 ) {
 		for ( i = 0; i < cnt; i++ ) {
 			freepkt( pkt_array[i] );
@@ -286,7 +288,7 @@ static packet_t **udp_allocate_recv_array( objhld_t h, int cnt )
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void udp_shutdown( packet_t * packet )
+void udp_shutdown_by_packet( packet_t * packet )
 {
 	if ( packet ) {
 		objclos( packet->link );
@@ -296,19 +298,19 @@ void udp_shutdown( packet_t * packet )
 
 void udp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 {
-	// ½øĞĞIO½á¹ûÅĞ¶¨£¬ Èç¹ûIOÊ§°Ü£¬ Ó¦¸ÃÍ¨¹ı»Øµ÷µÄ·½Ê½Í¨¸æµ÷ÓÃÏß³Ì
+	// è¿›è¡ŒIOç»“æœåˆ¤å®šï¼Œ å¦‚æœIOå¤±è´¥ï¼Œ åº”è¯¥é€šè¿‡å›è°ƒçš„æ–¹å¼é€šå‘Šè°ƒç”¨çº¿ç¨‹
 	if ( !NT_SUCCESS( status ) ) {
 		udp_dispatch_io_exception( packet, status );
 		return;
 	}
 
-	// ×´Ì¬Ã»ÓĞ·´À¡´íÎó, µ«ÊÇ½»»»×Ö½Ú³¤¶ÈÎª0£¬ ´Ë¶ÔÏó²»Ó¦¸Ã¼ÌĞø´æÔÚ
+	// çŠ¶æ€æ²¡æœ‰åé¦ˆé”™è¯¯, ä½†æ˜¯äº¤æ¢å­—èŠ‚é•¿åº¦ä¸º0ï¼Œ æ­¤å¯¹è±¡ä¸åº”è¯¥ç»§ç»­å­˜åœ¨
 	if ( 0 == packet->size_for_translation_ ) {
-		udp_shutdown( packet );
+		udp_shutdown_by_packet( packet );
 		return;
 	}
 
-	// ÊÕ·¢ÊÂ¼ş´¦Àí·ÖÅÉ
+	// æ”¶å‘äº‹ä»¶å¤„ç†åˆ†æ´¾
 	switch ( packet->type_ ) {
 		case kRecv:
 			udp_dispatch_io_recv( packet );
@@ -337,7 +339,7 @@ HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ip
 
 	if ( !user_callback ) return INVALID_HUDPLINK;
 
-	// Ô¤ÏÈÇı¶¯¿ÉÒÔÍ¶µİ¸øÏµÍ³µÄ IRP µÄÇ¡µ±ÊıÁ¿
+	// é¢„å…ˆé©±åŠ¨å¯ä»¥æŠ•é€’ç»™ç³»ç»Ÿçš„ IRP çš„æ°å½“æ•°é‡
 	cnts = so_asio_count();
 	if ( 0 == cnts ) return INVALID_HUDPLINK;
 
@@ -369,7 +371,7 @@ HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ip
 		return INVALID_HUDPLINK;
 	}
 
-	// Í¶µİ½ÓÊÕÇëÇó
+	// æŠ•é€’æ¥æ”¶è¯·æ±‚
 	for ( i = 0; i < cnts; i++ ) {
 		asio_udp_recv( pkt_array[i] );
 	}
@@ -459,7 +461,7 @@ void __stdcall udp_destroy( HUDPLINK lnk )
 	/* it should be the last reference operation of this object no matter how many ref-count now. */
 	ncb = objreff(lnk);
 	if (ncb) {
-		nis_call_ecr("[nshost.udp.destroy] order to destroy link:%I64d", ncb->link);
+		nis_call_ecr("[nshost.udp.destroy] link:%I64d order to destroy", ncb->link);
 		ioclose(ncb);
 		objdefr(lnk);
 	}
@@ -537,7 +539,7 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 	if (!grp) {
 		return -1;
 	}
-	
+
 	if (grp->Count <= 0) {
 		return -1;
 	}
@@ -562,7 +564,7 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 			break;
 		}
 
-		// ´íÎó»Ø¹ö
+		// é”™è¯¯å›æ»š
 		for ( i = 0; i < grp->Count; i++ ) {
 			if ( !grp->Items[i].Data ) {
 				break;
@@ -659,7 +661,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 	if (!grp) {
 		return -1;
 	}
-	
+
 	if (grp->Count <= 0) {
 		return -1;
 	}
@@ -674,7 +676,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 			break;
 		}
 
-		// ´´½¨·Ö×é°ü
+		// åˆ›å»ºåˆ†ç»„åŒ…
 		retval = allocate_packet( ( objhld_t ) lnk, kProto_UDP, kSend, 0, kNoAccess, &packet );
 		if ( retval < 0 ) {
 			break;
@@ -691,7 +693,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 			retval = syio_grp_send( packet );
 		}
 
-		// Í¬²½Íê³Éºó×Ô¶¯ÊÍ·Å°ü£¬ µ«°üÖĞµÄ grp Ö»ÄÜ½»ÓÉ xx_release_grp ½øĞĞÊÍ·Å
+		// åŒæ­¥å®Œæˆåè‡ªåŠ¨é‡Šæ”¾åŒ…ï¼Œ ä½†åŒ…ä¸­çš„ grp åªèƒ½äº¤ç”± xx_release_grp è¿›è¡Œé‡Šæ”¾
 		freepkt( packet );
 	} while ( FALSE );
 
@@ -718,27 +720,27 @@ int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) {
             break;
         }
 
-        /*ÉèÖÃ»Ø»·Ğí¿É*/
+        /*è®¾ç½®å›ç¯è®¸å¯*/
         int loop = 1;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&loop, sizeof (loop));
         if (retval < 0) {
             break;
         }
-        
-        /*¼ÓÈë¶à²¥×é*/
+
+        /*åŠ å…¥å¤šæ’­ç»„*/
         if (!ncb->mreq){
             ncb->mreq = (struct ip_mreq *)malloc(sizeof(struct ip_mreq));
 		}
 		if ( !ncb->mreq ) {
 			break;
 		}
-        ncb->mreq->imr_multiaddr.s_addr = inet_addr(g_ipstr); 
-        ncb->mreq->imr_interface.s_addr = ncb->l_addr_.sin_addr.s_addr; 
+        ncb->mreq->imr_multiaddr.s_addr = inet_addr(g_ipstr);
+        ncb->mreq->imr_interface.s_addr = ncb->l_addr_.sin_addr.s_addr;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
         if (retval < 0){
             break;
         }
-        
+
     } while (0);
 
     objdefr(hld);
@@ -749,33 +751,33 @@ int __stdcall udp_dropgrp(HUDPLINK lnk){
     ncb_t *ncb;
     objhld_t hld = (objhld_t) lnk;
     int retval;
-    
+
     if (lnk < 0){
         return -EINVAL;
     }
-    
+
     ncb = objrefr(hld);
     if (!ncb) return -1;
-    
+
     do{
         retval = -1;
-        
+
         if (!(ncb->flag_ & UDP_FLAG_MULTICAST) || !ncb->mreq) {
             break;
         }
 
-		/*»¹Ô­»Ø»·Ğí¿É*/
+		/*è¿˜åŸå›ç¯è®¸å¯*/
         int loop = 0;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&loop, sizeof (loop));
         if (retval < 0) {
             break;
         }
-        
-        /*Àë¿ª¶à²¥×é*/
+
+        /*ç¦»å¼€å¤šæ’­ç»„*/
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
-        
+
     }while(0);
-    
+
     objdefr(hld);
     return retval;
 }

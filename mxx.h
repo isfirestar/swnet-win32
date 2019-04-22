@@ -5,6 +5,7 @@
 
 #include <stdarg.h>
 
+extern
 void nis_call_ecr(const char *fmt,...);
 
 #endif
