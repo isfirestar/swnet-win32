@@ -344,6 +344,12 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 			break;
 		}
 
+
+		// 执行本地绑定
+		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
+			break;
+		}
+
 		// 创建阶段， 无论是否随机网卡，随机端口绑定， 都先行计入本地地址信息
 		// 在执行accept, connect后， 如果是随机端口绑定， 则可以取到实际生效的地址信息
 		ncb->l_addr_.sin_family = PF_INET;
@@ -379,7 +385,9 @@ void tcp_unload( objhld_t h, void * user_buffer )
 	ncb_t *ncb = ( ncb_t * ) user_buffer;
 	packet_t *packet;
 
-	if ( !user_buffer ) return;
+	if (!user_buffer) {
+		return;
+	}
 
 	// 处理关闭前事件
 	c_event.Ln.Tcp.Link = ( HTCPLINK ) h;
@@ -996,10 +1004,6 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 	r_addr.sin_port = htons( port );
 
 	do {
-		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
-			break;
-		}
-
 		if (connect(ncb->sockfd, (const struct sockaddr *)&r_addr, sizeof(r_addr)) < 0) {
 			nis_call_ecr( "[nshost.tcp.tcp_connect] syscall connect(2) failed,target endpoint=%s:%u, error:%u, link:%I64d", r_ipstr, port, WSAGetLastError(), ncb->link );
 			break;
@@ -1101,10 +1105,8 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 
 		retval = -1;
 
-		if ( 0 == block ) block = TCP_LISTEN_BLOCK_COUNT;
-
-		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
-			break;
+		if (0 == block) {
+			block = TCP_LISTEN_BLOCK_COUNT;
 		}
 
 		retval = listen(ncb->sockfd, block);
