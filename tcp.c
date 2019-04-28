@@ -344,17 +344,16 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 			break;
 		}
 
-
-		// 执行本地绑定
-		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
-			break;
-		}
-
 		// 创建阶段， 无论是否随机网卡，随机端口绑定， 都先行计入本地地址信息
 		// 在执行accept, connect后， 如果是随机端口绑定， 则可以取到实际生效的地址信息
 		ncb->l_addr_.sin_family = PF_INET;
 		ncb->l_addr_.sin_addr.S_un.S_addr = init_ctx->ip_;
 		ncb->l_addr_.sin_port = init_ctx->port_;
+
+		// 执行本地绑定
+		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
+			break;
+		}
 
 		// 描述每个链接上的TCP下级缓冲区大小
 		ncb->tcp_usable_sender_cache_ = TCP_BUFFER_SIZE;
@@ -1071,10 +1070,6 @@ int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 		}
 		packet->r_addr_.sin_family = AF_INET;
 		packet->r_addr_.sin_port = htons(port);
-
-		if (so_bind(&ncb->sockfd, ncb->l_addr_.sin_addr.S_un.S_addr, ncb->l_addr_.sin_port) < 0) {
-			break;
-		}
 
 		if (asio_tcp_connect(packet) < 0){
 			break;

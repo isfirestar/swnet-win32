@@ -13,8 +13,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerCommand>D:\work\git\my\master\swnet-win32\bin\Debug\motion_template.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>
-    </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>-slcanbus_driver_sim.dll</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>D:\work\git\my\master\swnet-win32\bin\Debug</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <RemoteDebuggerCommand>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommand>
