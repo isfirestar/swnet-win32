@@ -31,25 +31,12 @@
 #define NCB_UDP_HASHMAP_SIZE						(59)
 #define NCB_TCP_HASHMAP_SIZE						(599)
 
-void ncb_callback( ncb_t * ncb, const nis_event_t *c_evet, const void * c_data )
-{
-	if ( ncb ) {
-		if ( kProto_UDP == ncb->proto_type_ && ncb->udp_callback_) {
-			ncb->udp_callback_( c_evet, c_data );
-		}
-
-		if ( kProto_TCP == ncb->proto_type_ && ncb->tcp_callback_) {
-			ncb->tcp_callback_( c_evet, c_data );
-		}
-	}
-}
-
 void ncb_init( ncb_t * ncb, enum proto_type_t proto_type )
 {
 	if ( ncb ) {
 		memset( ncb, 0, sizeof( ncb_t ) );
 		ncb->sockfd = INVALID_SOCKET;
-		ncb->proto_type_ = proto_type;
+		ncb->proto_type = proto_type;
 		InitializeCriticalSection( &ncb->tcp_lst_lock_ );
 		INIT_LIST_HEAD( &ncb->tcp_waitting_list_head_ );
 	}
@@ -205,4 +192,75 @@ int ncb_get_keepalive(ncb_t *ncb, int *enabled){
         return getsockopt(ncb->sockfd, SOL_SOCKET, SO_KEEPALIVE, (void *__restrict)enabled, &optlen);
     }
     return -EINVAL;
+}
+
+void ncb_post_preclose(const ncb_t *ncb) {
+	nis_event_t c_event;
+	tcp_data_t c_data;
+
+	if (ncb) {
+		if (ncb->nis_callback) {
+			c_event.Ln.Tcp.Link = ncb->hld;
+			c_event.Event = EVT_PRE_CLOSE;
+			c_data.e.LinkOption.OptionLink = ncb->hld;
+			ncb->nis_callback(&c_event, &c_data);
+		}
+	}
+}
+
+void ncb_post_close(const ncb_t *ncb) {
+	nis_event_t c_event;
+	tcp_data_t c_data;
+
+	if (ncb) {
+		if (ncb->nis_callback) {
+			c_event.Ln.Tcp.Link = ncb->hld;
+			c_event.Event = EVT_CLOSED;
+			c_data.e.LinkOption.OptionLink = ncb->hld;
+			ncb->nis_callback(&c_event, &c_data);
+		}
+	}
+}
+
+void ncb_post_recvdata(const ncb_t *ncb, int cb, const unsigned char *data) {
+	nis_event_t c_event;
+	tcp_data_t c_data;
+
+	if (ncb) {
+		if (ncb->nis_callback) {
+			c_event.Ln.Tcp.Link = (HTCPLINK)ncb->hld;
+			c_event.Event = EVT_RECEIVEDATA;
+			c_data.e.Packet.Size = cb;
+			c_data.e.Packet.Data = data;
+			ncb->nis_callback(&c_event, &c_data);
+		}
+	}
+}
+
+void ncb_post_accepted(const ncb_t *ncb, HTCPLINK link) {
+	nis_event_t c_event;
+	tcp_data_t c_data;
+
+	if (ncb) {
+		if (ncb->nis_callback) {
+			c_event.Event = EVT_TCP_ACCEPTED;
+			c_event.Ln.Tcp.Link = ncb->hld;
+			c_data.e.Accept.AcceptLink = link;
+			ncb->nis_callback(&c_event, &c_data);
+		}
+	}
+}
+
+void ncb_post_connected(const ncb_t *ncb) {
+	nis_event_t c_event;
+	tcp_data_t c_data;
+
+	if (ncb) {
+		if (ncb->nis_callback) {
+			c_event.Event = EVT_TCP_CONNECTED;
+			c_event.Ln.Tcp.Link = ncb->hld;
+			c_data.e.LinkOption.OptionLink = ncb->hld;
+			ncb->nis_callback(&c_event, &c_data);
+		}
+	}
 }

@@ -79,7 +79,9 @@ void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 	packet_t *	packet = ( packet_t * ) pOvlp;
 	NTSTATUS status;
 
-	if ( !packet ) return;
+	if (!packet) {
+		return;
+	}
 
 	// 填充实际的交换数据长度
 	packet->size_for_translation_ = transfer_bytes;
@@ -88,7 +90,7 @@ void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 	status = ( NTSTATUS ) pOvlp->Internal;
 
 	// 按协议类型分发异常
-	switch ( packet->proto_type_ ) {
+	switch ( packet->proto_type ) {
 		case kProto_UDP:
 			udp_dispatch_io_event( packet, status );
 			break;
@@ -96,7 +98,7 @@ void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 			tcp_dispatch_io_event( packet, status );
 			break;
 		default:
-			nis_call_ecr( "[nshost.network.so_dispatch_io_event] unknown packet protocol type %u dispatch to network.", packet->proto_type_ );
+			nis_call_ecr( "[nshost.network.so_dispatch_io_event] unknown packet protocol type %u dispatch to network.", packet->proto_type );
 			break;
 	}
 }
@@ -123,27 +125,29 @@ int so_asio_count()
 	return 1;
 }
 
-SOCKET so_allocate_asio_socket( int type, int protocol )
+SOCKET so_create( int type, int protocol )
 {
 	SOCKET s = WSASocket( PF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED );
 	if ( s < 0 ) {
-		nis_call_ecr( "[nshost.network.so_allocate_asio_socket] syscall WSASocket failed,error code=%u", WSAGetLastError() );
+		nis_call_ecr( "[nshost.network.so_create] syscall WSASocket failed,error code=%u", WSAGetLastError() );
 	}
 	return s;
 }
 
-int so_bind( SOCKET *s, uint32_t ip, uint16_t port )
+int so_bind( SOCKET s, uint32_t ip, uint16_t port )
 {
 	int retval;
 	struct sockaddr_in addr;
 
-	if ( !s ) return -1;
+	if (INVALID_SOCKET == s) {
+		return -1;
+	}
 
 	addr.sin_addr.S_un.S_addr = ip;
 	addr.sin_port = port;
 	addr.sin_family = AF_INET;
 
-	retval = bind( *s, ( const struct sockaddr * )&addr, sizeof( struct sockaddr ) );
+	retval = bind(s, ( const struct sockaddr * )&addr, sizeof( struct sockaddr ) );
 	if ( retval < 0 ) {
 		nis_call_ecr( "[nshost.network.so_bind] syscall bind(2) failed,error code=%u", WSAGetLastError() );
 	}

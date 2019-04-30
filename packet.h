@@ -27,7 +27,7 @@ enum page_style_t {
 typedef struct _NCC_PACKET {
 	OVERLAPPED overlapped_;
 	enum pkt_type_t type_;		// 区别收包发包
-	enum proto_type_t proto_type_;// 协议类型
+	enum proto_type_t proto_type;// 协议类型
 	enum page_style_t page_style_;				// 缓冲区页属性
 	uint32_t flag_;				// 保存异步过程中的flag
 	int from_length_;				// 保存fromlen
@@ -35,8 +35,8 @@ typedef struct _NCC_PACKET {
 	objhld_t accepted_link;			// 用于 tcp accept 的对端对象句柄
 	union {
 		struct {						// 对 UDP 对象， 存储发送目标地址
-			struct sockaddr_in r_addr_;
-			struct sockaddr_in l_addr_;
+			struct sockaddr_in remote_addr;
+			struct sockaddr_in local_addr;
 		};
 		struct list_head pkt_lst_entry_;	// 对 TCP 发送对象的 ncb_t::tcp_waitting_list_head_ 钩链(每个包都是一个节点)
 	};

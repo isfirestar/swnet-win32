@@ -142,14 +142,14 @@ int ioatth(void *ncbptr) {
 		return -EINVAL;
 	}
 
-	epos = &epmgr.epos[ncb->link % epmgr.divisions];
+	epos = &epmgr.epos[ncb->hld % epmgr.divisions];
 	bind_iocp = CreateIoCompletionPort((HANDLE)ncb->sockfd, epos->epfd, (ULONG_PTR)NULL, 0);
 	if ((bind_iocp) && (bind_iocp == epos->epfd)) {
-		nis_call_ecr("[nshost.io.ioatth] success associate sockfd:%d with epfd:%d, link:%I64d", ncb->sockfd, epos->epfd, ncb->link);
+		nis_call_ecr("[nshost.io.ioatth] success associate sockfd:%d with epfd:%d, link:%I64d", ncb->sockfd, epos->epfd, ncb->hld);
 		return 0;
 	}
 
-	nis_call_ecr("[nshost.io.ioattach] link:%I64u syscall CreateIoCompletionPort failed, error code=%u", ncb->link, GetLastError());
+	nis_call_ecr("[nshost.io.ioattach] link:%I64u syscall CreateIoCompletionPort failed, error code=%u", ncb->hld, GetLastError());
 	return -1;
 }
 

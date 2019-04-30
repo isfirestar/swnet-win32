@@ -27,6 +27,22 @@ typedef long NTSTATUS;
 #define NT_SUCCESS(status)		(status >= 0)
 #endif
 
+#if !defined STATUS_HOST_UNREACHABLE
+#define STATUS_HOST_UNREACHABLE          ((NTSTATUS)0xC000023DL)
+#endif
+
+#if !defined STATUS_CANCELLED
+#define STATUS_CANCELLED				((NTSTATUS)0xC0000120L)
+#endif
+
+#if !defined STATUS_PROTOCOL_UNREACHABLE
+#define STATUS_PROTOCOL_UNREACHABLE      ((NTSTATUS)0xC000023EL)
+#endif
+
+#if !defined STATUS_PORT_UNREACHABLE
+#define STATUS_PORT_UNREACHABLE          ((NTSTATUS)0xC000023FL)
+#endif
+
 #if !defined NULL
 #define NULL ((void *)0)
 #endif

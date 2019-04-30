@@ -29,7 +29,7 @@ int udprefr(objhld_t hld, ncb_t **ncb) {
 
 	*ncb = objrefr(hld);
 	if (NULL != (*ncb)) {
-		if ((*ncb)->proto_type_ == kProto_UDP) {
+		if ((*ncb)->proto_type == kProto_UDP) {
 			return 0;
 		}
 
@@ -56,25 +56,28 @@ static void udp_dispatch_io_recv( packet_t *packet )
 		return;
 	}
 
-	// 填充接收数据事件
-	c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
-	c_event.Event = EVT_RECEIVEDATA;
+	if (ncb->nis_callback) {
+		/* 填充接收数据事件 */
+		c_event.Ln.Udp.Link = (HUDPLINK)packet->link;
+		c_event.Event = EVT_RECEIVEDATA;
 
-	// 通知接收事件
-	c_data.e.Packet.Size = packet->size_for_translation_;
-	c_data.e.Packet.Data = ( const char * ) packet->irp_;
-	c_data.e.Packet.RemotePort = ntohs( packet->r_addr_.sin_port );
-	if ( !inet_ntop( AF_INET, &packet->r_addr_.sin_addr, c_data.e.Packet.RemoteAddress, _countof( c_data.e.Packet.RemoteAddress ) ) ) {
-		RtlZeroMemory( c_data.e.Packet.RemoteAddress, _countof( c_data.e.Packet.RemoteAddress ) );
+		/* 通知接收事件 */
+		c_data.e.Packet.Size = packet->size_for_translation_;
+		c_data.e.Packet.Data = ( const char * ) packet->irp_;
+		c_data.e.Packet.RemotePort = ntohs( packet->remote_addr.sin_port );
+		if ( !inet_ntop( AF_INET, &packet->remote_addr.sin_addr, c_data.e.Packet.RemoteAddress, _countof( c_data.e.Packet.RemoteAddress ) ) ) {
+			RtlZeroMemory( c_data.e.Packet.RemoteAddress, _countof( c_data.e.Packet.RemoteAddress ) );
+		}
+
+		ncb->nis_callback(&c_event, &c_data);
 	}
-	ncb_callback( ncb, &c_event, ( void * ) &c_data );
 
-	// 这个时候已经是完成了处理, 继续将一个异步的 IRP 投递下去
-	// 本次操作， 包括缓冲区在内的一切东西都可以忽略了
+	/* 这个时候已经是完成了处理, 继续将一个异步的 IRP 投递下去
+	   本次操作， 包括缓冲区在内的一切东西都可以忽略了 */
 	packet->size_for_translation_ = 0;
 	asio_udp_recv( packet );
 
-	objdefr( ncb->link );
+	objdefr( ncb->hld );
 }
 
 static void udp_dispatch_io_send( packet_t * packet )
@@ -105,14 +108,14 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	if (status == STATUS_PORT_UNREACHABLE ||
 		status == STATUS_PROTOCOL_UNREACHABLE ||
 		status == STATUS_HOST_UNREACHABLE) {
-		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] type:%d, NTSTATUS:0x%08X,link:%I64d", packet->type_, status, packet->link);
+		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] type:%d, NTSTATUS:0x%08X,link:%I64d, link remain", packet->type_, status, packet->link);
 		packet->size_for_translation_ = 0;
 		asio_udp_recv(packet);
 	} else {
 		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] type:%d, NTSTATUS:0x%08X,link:%I64d, this link will be shutdown", packet->type_, status, packet->link);
 		udp_shutdown_by_packet(packet);
 	}
-	objdefr(ncb->link);
+	objdefr(ncb->hld);
 }
 
 static int udp_update_opts(ncb_t *ncb) {
@@ -136,31 +139,33 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 	ncb_t *ncb = ( ncb_t * ) user_buffer;
 	uint32_t bytes_returned;
 	struct sockaddr_in conn_addr;
+	int addrlen;
 
-	if ( !ctx || !ncb ) return -1;
+	if (!ctx || !ncb) {
+		return -1;
+	}
 
 	ncb_init( ncb, kProto_UDP );
-	ncb->link = h;
-	ncb->sockfd = so_allocate_asio_socket(SOCK_DGRAM, IPPROTO_UDP);
+	ncb->hld = h;
+	ncb->sockfd = so_create(SOCK_DGRAM, IPPROTO_UDP);
 	if (ncb->sockfd < 0) {
 		return -1;
 	}
 
 	do {
-		if (so_bind(&ncb->sockfd, ctx->ipv4_, ctx->port_) < 0) {
+		if (so_bind(ncb->sockfd, ctx->ipv4_, ctx->port_) < 0) {
 			break;
 		}
 
-		// 直接填写地址结构
-		ncb->l_addr_.sin_family = AF_INET;
-		ncb->l_addr_.sin_addr.S_un.S_addr = ctx->ipv4_;
-		ncb->l_addr_.sin_port = ctx->port_;
+		ncb->local_addr.sin_family = AF_INET;
+		ncb->local_addr.sin_addr.S_un.S_addr = ctx->ipv4_;
+		ncb->local_addr.sin_port = ctx->port_;
 
 		// 如果采用随机端口绑定， 则应该获取真实的绑定端口
 		if ( 0 == ctx->port_ ) {
-			int len = sizeof( conn_addr );
-			if (getsockname(ncb->sockfd, (SOCKADDR*)&conn_addr, &len) >= 0) {
-				ncb->l_addr_.sin_port = ntohs( conn_addr.sin_port );
+			addrlen = sizeof(conn_addr);
+			if (getsockname(ncb->sockfd, (SOCKADDR*)&conn_addr, &addrlen) >= 0) {
+				ncb->local_addr.sin_port = ntohs( conn_addr.sin_port );
 			}
 		}
 
@@ -183,18 +188,18 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 		// 这项属性打开情形下会导致 WSAECONNRESET 错误返回
 		behavior = -1;
 		if (WSAIoctl(ncb->sockfd, SIO_UDP_CONNRESET, &behavior, sizeof(behavior), NULL, 0, &bytes_returned, NULL, NULL) < 0) {
-			nis_call_ecr("[nshost.udp.udp_entry] syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u,link:%I64d", WSAGetLastError(), ncb->link);
+			nis_call_ecr("[nshost.udp.udp_entry] syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u,link:%I64d", WSAGetLastError(), ncb->hld);
 			break;
 		}
 
 		// 将对象绑定到异步IO的完成端口
-		if (ioatth(ncb) < 0) break;
+		if (ioatth(ncb) < 0) {
+			break;
+		}
 
 		// 回调用户地址， 通知调用线程， UDP 子对象已经创建完成
 		ncb_set_callback( ncb, ctx->f_user_callback_ );
-
 		return 0;
-
 	} while ( FALSE );
 
 	ioclose(ncb);
@@ -203,31 +208,26 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 
 static void udp_unload( objhld_t h, void * user_buffer )
 {
-	nis_event_t c_event;
-	udp_data_t c_data;
-	ncb_t * ncb = ( ncb_t * ) user_buffer;
+	ncb_t *ncb;
 
-	if ( !user_buffer ) return;
+	ncb = (ncb_t *)user_buffer; 
+	if (!ncb) {
+		return;
+	}
 
-	// 关闭前事件
-	c_event.Ln.Udp.Link = ( HUDPLINK ) h;
-	c_event.Event = EVT_PRE_CLOSE;
-	c_data.e.LinkOption.OptionLink = ( HUDPLINK ) h;
-	ncb_callback( ncb, &c_event, &h );
+	/* 关闭前事件 */
+	ncb_post_preclose(ncb);
 
-	// 关闭内部套接字
+	/* 关闭内部套接字 */
 	ioclose(ncb);
 
-	// 关闭后事件
-	c_event.Event = EVT_CLOSED;
-	ncb_callback( ncb, &c_event, &h );
-
-	// 释放用户上下文数据指针
+	/* 释放用户上下文数据指针 */
 	if ( ncb->ncb_ctx_ && 0 != ncb->ncb_ctx_size_ ) {
 		free( ncb->ncb_ctx_ );
 	}
 
-	nis_call_ecr("[nshost.udp.udp_unload] object:%I64d finalization released", ncb->link);
+	nis_call_ecr("[nshost.udp.udp_unload] object:%I64d finalization released", ncb->hld);
+	ncb_post_close(ncb);
 }
 
 static objhld_t udp_allocate_object(const udp_cinit_t *ctx) {
@@ -242,7 +242,6 @@ static objhld_t udp_allocate_object(const udp_cinit_t *ctx) {
 	ncb = objrefr( h );
 	retval = udp_entry( h, ncb, ctx );
 	objdefr( h );
-	ncb = NULL;
 
 	if ( retval < 0 ) {
 		objclos( h );
@@ -337,20 +336,22 @@ HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ip
 	int cnts;
 	int i;
 
-	if ( !user_callback ) return INVALID_HUDPLINK;
+	if (!user_callback) {
+		return INVALID_HUDPLINK;
+	}
 
 	// 预先驱动可以投递给系统的 IRP 的恰当数量
 	cnts = so_asio_count();
-	if ( 0 == cnts ) return INVALID_HUDPLINK;
+	if (0 == cnts) {
+		return INVALID_HUDPLINK;
+	}
 
 	if ( !l_ipstr ) {
 		ctx.ipv4_ = INADDR_ANY;
 	} else {
 		IN_ADDR l_in_addr;
-		/*
-		The InetPton function returns a value of 0 if the pAddrBuf parameter points to a string that is not a valid IPv4 dotted-decimal string or a valid IPv6 address string.
-		Otherwise, a value of -1 is returned, and a specific error code can be retrieved by calling the WSAGetLastError for extended error information.
-		*/
+		/* The InetPton function returns a value of 0 if the pAddrBuf parameter points to a string that is not a valid IPv4 dotted-decimal string or a valid IPv6 address string.
+			Otherwise, a value of -1 is returned, and a specific error code can be retrieved by calling the WSAGetLastError for extended error information. */
 		if ( inet_pton( AF_INET, l_ipstr, &l_in_addr ) <= 0 ) {
 			return INVALID_HUDPLINK;
 		}
@@ -399,7 +400,7 @@ int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const 
 				continue;
 			}
 
-			nis_call_ecr("[nshost.udp.__udp_tx_single_packet] syscall sendto(2) failed,error:%u,link:%lld", WSAGetLastError(), ncb->link);
+			nis_call_ecr("[nshost.udp.__udp_tx_single_packet] syscall sendto(2) failed,error:%d,link:%I64d", WSAGetLastError(), ncb->hld);
 			return -1;
 		}
 
@@ -461,7 +462,7 @@ void __stdcall udp_destroy( HUDPLINK lnk )
 	/* it should be the last reference operation of this object no matter how many ref-count now. */
 	ncb = objreff(lnk);
 	if (ncb) {
-		nis_call_ecr("[nshost.udp.destroy] link:%I64d order to destroy", ncb->link);
+		nis_call_ecr("[nshost.udp.destroy] link:%I64d order to destroy", ncb->hld);
 		ioclose(ncb);
 		objdefr(lnk);
 	}
@@ -481,9 +482,9 @@ int __stdcall udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
 	}
 
 	if (udprefr(lnk, &ncb) >= 0) {
-		*ipv4 = htonl(ncb->l_addr_.sin_addr.S_un.S_addr);
-		*port_output = htons(ncb->l_addr_.sin_port);
-		objdefr( ncb->link );
+		*ipv4 = htonl(ncb->local_addr.sin_addr.S_un.S_addr);
+		*port_output = htons(ncb->local_addr.sin_port);
+		objdefr( ncb->hld );
 		return 0;
 	}
 
@@ -506,7 +507,7 @@ int __stdcall udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int
 	}
 
 	retval = setsockopt(ncb->sockfd, level, opt, val, len);
-	objdefr( ncb->link );
+	objdefr( ncb->hld );
 	return retval;
 }
 
@@ -526,7 +527,7 @@ int __stdcall udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len 
 
 	retval = getsockopt(ncb->sockfd, level, opt, val, len);
 
-	objdefr( ncb->link );
+	objdefr( ncb->hld );
 	return retval;
 }
 
@@ -575,7 +576,7 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 
 	} while ( FALSE );
 
-	objdefr( ncb->link );
+	objdefr( ncb->hld );
 	return retval;
 }
 
@@ -607,7 +608,7 @@ int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port 
 	do {
 		retval = -1;
 
-		if ( kProto_UDP != ncb->proto_type_ ) {
+		if ( kProto_UDP != ncb->proto_type ) {
 			break;
 		}
 
@@ -631,7 +632,7 @@ int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port 
 
 	} while ( FALSE );
 
-	objdefr( ncb->link );
+	objdefr( ncb->hld );
 	return retval;
 }
 
@@ -648,7 +649,7 @@ void __stdcall udp_detach_grp( HUDPLINK lnk )
 		syio_v_disconnect(ncb);
 	}
 
-	objdefr( ncb->link );
+	objdefr( ncb->hld );
 }
 
 int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
@@ -697,7 +698,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 		freepkt( packet );
 	} while ( FALSE );
 
-	objdefr( ncb->link );
+	objdefr( ncb->hld );
 	return retval;
 }
 
@@ -735,7 +736,7 @@ int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) {
 			break;
 		}
         ncb->mreq->imr_multiaddr.s_addr = inet_addr(g_ipstr);
-        ncb->mreq->imr_interface.s_addr = ncb->l_addr_.sin_addr.s_addr;
+        ncb->mreq->imr_interface.s_addr = ncb->local_addr.sin_addr.s_addr;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
         if (retval < 0){
             break;

@@ -58,7 +58,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 		memcpy( ncb->ncb_ctx_, ncb_ctx, ncb->ncb_ctx_size_ );
 	} while ( FALSE );
 
-	objdefr( ncb->link );
+	objdefr(ncb->hld);
 	return retval;
 }
 
@@ -76,7 +76,7 @@ int __stdcall nis_getctx( HLNK lnk, void * user_context, int *user_context_size 
 
 	if ( ncb->ncb_ctx_ && 0 != ncb->ncb_ctx_size_ ) memcpy( user_context, ncb->ncb_ctx_, ncb->ncb_ctx_size_ );
 	if ( user_context_size ) *user_context_size = ncb->ncb_ctx_size_;
-	objdefr( ncb->link );
+	objdefr(ncb->hld);
 	return 0;
 }
 
@@ -93,7 +93,7 @@ void *__stdcall nis_refctx( HLNK lnk, int *user_context_size )
 		if ( user_context_size ) {
 			*user_context_size = ncb->ncb_ctx_size_;
 		}
-		objdefr( ncb->link );
+		objdefr(ncb->hld);
 	}
 
 	return ctxptr;
@@ -110,7 +110,7 @@ int __stdcall nis_ctxsize( HLNK lnk )
 		return -1;
 	}
 	size = ncb->ncb_ctx_size_;
-	objdefr( ncb->link );
+	objdefr(ncb->hld);
 	return size;
 }
 

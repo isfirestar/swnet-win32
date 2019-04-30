@@ -12,17 +12,13 @@ typedef void( *object_unload_t )( objhld_t h, void * user_buffer );
 
 typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 {
-	objhld_t					link;
+	objhld_t					hld;
 	SOCKET						sockfd;
-	enum proto_type_t			proto_type_;
-	union	{
-		udp_io_callback_t		udp_callback_;
-		tcp_io_callback_t		tcp_callback_;
-	};
-	struct {
-		struct sockaddr_in		l_addr_;				// 本地地址信息记录
-		struct sockaddr_in		r_addr_;				// 对端地址信息记录
-	};
+	enum proto_type_t			proto_type;
+
+	struct sockaddr_in			local_addr;				// 本地地址信息记录
+	struct sockaddr_in			remote_addr;				// 对端地址信息记录
+	nis_callback_t				nis_callback;
 
 	int							flag_;						// 标记， 目前TCP未使用， UDP可以指定为 UDP_FLAG_BROADCAST
 	int							connected_;					// 是否已经建立连接
@@ -59,11 +55,9 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 
 void ncb_init( ncb_t * ncb, enum proto_type_t proto_type );
 
-#define ncb_set_callback(ncb, fn)		( ncb->tcp_callback_ = ncb->udp_callback_ = ( nis_callback_t )( void * )fn )
-extern
-void ncb_callback( ncb_t * ncb, const nis_event_t * c_event, const void * c_data );
-
+#define ncb_set_callback(ncb, fn)		( ncb->nis_callback = ( nis_callback_t )( void * )fn )
 #define ncb_lb_marked(ncb)	((ncb) ? ((NULL != ncb->lb_data_) && (ncb->lb_length_ > 0)) : (FALSE))
+
 extern
 int ncb_mark_lb( ncb_t *ncb, int Size, int CurrentSize, void * SourceData );
 extern
@@ -98,5 +92,16 @@ extern
 int ncb_set_keepalive(ncb_t *ncb, int enable);
 extern
 int ncb_get_keepalive(ncb_t *ncb, int *enabled);
+
+extern
+void ncb_post_preclose(const ncb_t *ncb);
+extern
+void ncb_post_close(const ncb_t *ncb);
+extern
+void ncb_post_recvdata(const ncb_t *ncb, int cb, const unsigned char *data);
+extern
+void ncb_post_accepted(const ncb_t *ncb, HTCPLINK link);
+extern
+void ncb_post_connected(const ncb_t *ncb);
 
 #endif
