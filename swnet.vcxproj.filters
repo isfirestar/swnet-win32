@@ -111,9 +111,6 @@
     <ClInclude Include="..\libnsp\icom\hash.h">
       <Filter>icom</Filter>
     </ClInclude>
-    <ClInclude Include="resource1.h">
-      <Filter>Resource Files</Filter>
-    </ClInclude>
     <ClInclude Include="mxx.h">
       <Filter>Head Files</Filter>
     </ClInclude>
@@ -122,6 +119,9 @@
     </ClInclude>
     <ClInclude Include="os.h">
       <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Resource Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
