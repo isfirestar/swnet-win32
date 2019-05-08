@@ -12,10 +12,6 @@ enum proto_type_t {
 	kProto_MaximumId
 };
 
-#if !defined UDP_MAXIMUM_USER_DATA_SIZE
-#define UDP_MAXIMUM_USER_DATA_SIZE	(1472)		/* MTU - UDP_P_SIZE - IP_P_SIZE */
-#endif
-
 extern
 int so_init( enum proto_type_t proto_type, int th_cnt );
 extern

@@ -78,7 +78,9 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 
 void freepkt( packet_t * packet )
 {
-	if ( !packet ) return;
+	if ( !packet ) {
+		return;
+	}
 
 	switch ( packet->page_style_ ) {
 		case kNoAccess:
