@@ -154,7 +154,7 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 	if (!packet || !ncb) {
 		return -1;
 	}
-	
+
 	if (0 == packet->size_for_translation_) {
 		return -1;
 	}
@@ -756,7 +756,7 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 		}
 
 	} while ( 0 );
-	
+
 	objdefr(ncb->hld);
 }
 
@@ -1019,7 +1019,10 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 
 	} while ( FALSE );
 
-	freepkt( packet );
+	if (packet) {
+		freepkt( packet );
+	}
+
 	objdefr(ncb->hld);
 	return -1;
 }
@@ -1108,7 +1111,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	int total_packet_length;
 	int retval;
 
-	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb >= TCP_MAXIMUM_PACKET_SIZE || !origin) {
+	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb > TCP_MAXIMUM_PACKET_SIZE || !origin) {
 		return -1;
 	}
 

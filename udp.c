@@ -210,7 +210,7 @@ static void udp_unload( objhld_t h, void * user_buffer )
 {
 	ncb_t *ncb;
 
-	ncb = (ncb_t *)user_buffer; 
+	ncb = (ncb_t *)user_buffer;
 	if (!ncb) {
 		return;
 	}
@@ -417,7 +417,7 @@ int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_
 	objhld_t hld = (objhld_t)lnk;
 	unsigned char *buffer;
 
-	if (!r_ipstr || (0 == r_port) || (cb <= 0) || (lnk < 0) || (cb > UDP_MAXIMUM_USER_DATA_SIZE)) {
+	if (!r_ipstr || (0 == r_port) || (cb <= 0) || (lnk < 0) || (cb > MAX_UDP_UNIT)) {
 		return -EINVAL;
 	}
 
