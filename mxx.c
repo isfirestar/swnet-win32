@@ -8,6 +8,9 @@
 // Link with Iphlpapi.lib
 #pragma comment(lib, "IPHLPAPI.lib")
 
+extern int tcp_settst_r(HTCPLINK link, tst_t *tst);
+int tcp_gettst_r(HTCPLINK link, tst_t *tst, tst_t *previous);
+
 /*++
 	For a connectionless socket (for example, type SOCK_DGRAM),
 	the operation performed by WSAConnect is merely to establish a default destination address so that the socket can be used on subsequent connection-oriented send and receive operations
@@ -220,7 +223,7 @@ int __stdcall nis_setmask(HTCPLINK lnk, int mask)
 		return -EEXIST;
 	}
 
-	ncb->optmask = mask;
+	ncb->attr = mask;
 
 	objdefr(hld);
 	return 0;
@@ -237,7 +240,7 @@ int __stdcall nis_getmask(HTCPLINK lnk, int *mask)
 	}
 
 	if (mask) {
-		*mask = ncb->optmask;
+		*mask = ncb->attr;
 	}
 
 	objdefr(hld);
@@ -309,4 +312,50 @@ int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) {
 		free(pAddresses);
 	}
 	return 0;
+}
+
+int __stdcall nis_cntl(objhld_t link, int cmd, ...)
+{
+	ncb_t *ncb;
+	int retval;
+	va_list ap;
+	void *context;
+
+	ncb = objrefr(link);
+	if (!ncb) {
+		return -ENOENT;
+	}
+
+	retval = 0;
+
+	va_start(ap, cmd);
+	switch (cmd) {
+	case NI_SETATTR:
+		InterlockedExchange((volatile LONG *)&ncb->attr, va_arg(ap, int));
+		break;
+	case NI_GETATTR:
+		InterlockedExchange((volatile LONG *)&retval, ncb->attr);
+		break;
+	case NI_SETCTX:
+		context = va_arg(ap, void *);
+		ncb->prcontext = InterlockedExchangePointer(&ncb->context, context);
+		break;
+	case NI_GETCTX:
+		ncb->prcontext = InterlockedExchangePointer(&context, ncb->context);
+		*(va_arg(ap, void **)) = context;
+		break;
+	case NI_SETTST:
+		retval = tcp_settst_r(link, va_arg(ap, void *));
+		break;
+	case NI_GETTST:
+		retval = tcp_gettst_r(link, va_arg(ap, void *), NULL);
+		break;
+	default:
+		return -EINVAL;
+	}
+	va_end(ap);
+
+	objdefr(link);
+	return retval;
+
 }

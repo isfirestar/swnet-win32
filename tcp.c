@@ -15,6 +15,7 @@
 
 #define TCP_BUFFER_SIZE								( 0x11000 )
 #define TCP_MAXIMUM_PACKET_SIZE						( 50 << 20 )
+#define TCP_MAXIMUM_TEMPLATE_SIZE					(32)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef struct _TCP_INIT_CONTEXT {
@@ -279,7 +280,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		// 回调到用户例程, 使用其实地址累加解析偏移， 直接赋予回调例程的结构指针， 因为const限制， 调用线程不应该刻意修改该串的值
 		c_event.Ln.Tcp.Link = (HTCPLINK)ncb->hld;
 		c_event.Event = EVT_RECEIVEDATA;
-		if (ncb->optmask & LINKATTR_TCP_FULLY_RECEIVE) {
+		if (ncb->attr & LINKATTR_TCP_FULLY_RECEIVE) {
 			c_data.e.Packet.Size = user_size + ncb->tcp_tst_.cb_;
 			c_data.e.Packet.Data = (const char *)((char *)packet->ori_buffer_ + current_parse_offset);
 		} else {
@@ -903,6 +904,33 @@ int __stdcall tcp_settst( HTCPLINK lnk, const tst_t *tst )
 	return 0;
 }
 
+int tcp_settst_r(HTCPLINK link, tst_t *tst)
+{
+	ncb_t *ncb;
+	int retval;
+
+	if (!tst) {
+		return -EINVAL;
+	}
+
+	/* size of tcp template must be less or equal to 32 bytes */
+	if (tst->cb_ > TCP_MAXIMUM_TEMPLATE_SIZE) {
+		nis_call_ecr("[nshost.tcp.settst] tst size must less than 32 byte.");
+		return -EINVAL;
+	}
+
+	retval = tcprefr(link, &ncb);
+	if (retval < 0) {
+		return retval;
+	}
+
+	ncb->tcp_prtst.cb_ = InterlockedExchange((volatile LONG *)&ncb->tcp_tst_.cb_, tst->cb_);
+	ncb->tcp_prtst.builder_ = InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.builder_, tst->builder_);
+	ncb->tcp_prtst.parser_ = InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.parser_, tst->parser_);
+	objdefr(link);
+	return retval;
+}
+
 int __stdcall tcp_gettst( HTCPLINK lnk, tst_t *tst )
 {
 	ncb_t *ncb;
@@ -917,6 +945,32 @@ int __stdcall tcp_gettst( HTCPLINK lnk, tst_t *tst )
 
 	objdefr(ncb->hld);
 	return 0;
+}
+
+int tcp_gettst_r(HTCPLINK link, tst_t *tst, tst_t *previous)
+{
+	ncb_t *ncb;
+	int retval;
+	tst_t local;
+
+	if (!tst) {
+		return -EINVAL;
+	}
+
+	retval = tcprefr(link, &ncb);
+	if (retval < 0) {
+		return retval;
+	}
+
+	local.cb_ = InterlockedExchange((volatile LONG *)&tst->cb_, ncb->tcp_tst_.cb_);
+	local.builder_ = InterlockedExchangePointer((volatile PVOID *)&tst->builder_, ncb->tcp_tst_.builder_);
+	local.parser_ = InterlockedExchangePointer((volatile PVOID *)&tst->parser_, ncb->tcp_tst_.parser_);
+	objdefr(link);
+
+	if (previous) {
+		memcpy(previous, &local, sizeof(local));
+	}
+	return retval;
 }
 
 HTCPLINK __stdcall tcp_create( tcp_io_callback_t user_callback, const char* l_ipstr, uint16_t l_port )
@@ -1134,7 +1188,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 			break;
 		}
 
-		if ((!ncb->tcp_tst_.builder_) || (ncb->optmask & LINKATTR_TCP_NO_BUILD)) {
+		if ((!ncb->tcp_tst_.builder_) || (ncb->attr & LINKATTR_TCP_NO_BUILD)) {
 			total_packet_length = cb;
 			// 没有指定下层协议的构建例程，则认为传入数据已经完成了下层协议的构建
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
@@ -1345,7 +1399,7 @@ int __stdcall tcp_setattr(HTCPLINK lnk, int attr, int enable) {
 		case LINKATTR_TCP_FULLY_RECEIVE:
 		case LINKATTR_TCP_NO_BUILD:
 		case LINKATTR_TCP_UPDATE_ACCEPT_CONTEXT:
-			(enable > 0) ? (ncb->optmask |= attr) : (ncb->optmask &= ~attr);
+			(enable > 0) ? (ncb->attr |= attr) : (ncb->attr &= ~attr);
 			retval = 0;
 			break;
 		default:
@@ -1366,7 +1420,7 @@ int __stdcall tcp_getattr(HTCPLINK lnk, int attr, int *enabled) {
 		return retval;
 	}
 
-	if (ncb->optmask & attr) {
+	if (ncb->attr & attr) {
 		*enabled = 1;
 	} else {
 		*enabled = 0;

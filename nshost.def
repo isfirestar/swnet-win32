@@ -52,6 +52,7 @@ EXPORTS
 	nis_checr
 	nis_setmask
 	nis_getmask
+	nis_cntl
 
 	avlinsert
 	avlremove

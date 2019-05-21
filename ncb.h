@@ -31,7 +31,10 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
      *  */
     int iptos;
 
-	int optmask;
+	int attr;
+
+	void *context;
+	void *prcontext;
 
 	struct {												// 大包解读(大于64KB但是不足50MB的TCP数据包)
 		char*					lb_data_;					// large block data
@@ -44,6 +47,7 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 		int						tcp_usable_sender_cache_;	// (这个链上的) 下层可用缓冲区字节数
 		int						tcp_pending_cnt_;			// (这个链上的) 未决IO请求个数
 		tst_t					tcp_tst_;					// TCP(属于这个链的)协议解析模板
+		tst_t					tcp_prtst;
         int						mss;						/* MSS of tcp link */
 	};
 	struct {
