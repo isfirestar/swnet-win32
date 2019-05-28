@@ -202,7 +202,6 @@ void ncb_post_preclose(const ncb_t *ncb) {
 		if (ncb->nis_callback) {
 			c_event.Ln.Tcp.Link = ncb->hld;
 			c_event.Event = EVT_PRE_CLOSE;
-			c_data.e.LinkOption.OptionLink = ncb->hld;
 			ncb->nis_callback(&c_event, &c_data);
 		}
 	}
@@ -216,7 +215,6 @@ void ncb_post_close(const ncb_t *ncb) {
 		if (ncb->nis_callback) {
 			c_event.Ln.Tcp.Link = ncb->hld;
 			c_event.Event = EVT_CLOSED;
-			c_data.e.LinkOption.OptionLink = ncb->hld;
 			ncb->nis_callback(&c_event, &c_data);
 		}
 	}
@@ -259,7 +257,6 @@ void ncb_post_connected(const ncb_t *ncb) {
 		if (ncb->nis_callback) {
 			c_event.Event = EVT_TCP_CONNECTED;
 			c_event.Ln.Tcp.Link = ncb->hld;
-			c_data.e.LinkOption.OptionLink = ncb->hld;
 			ncb->nis_callback(&c_event, &c_data);
 		}
 	}

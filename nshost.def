@@ -90,8 +90,6 @@ EXPORTS
 	posix__mkdir
 	posix__pmkdir
 	posix__rm
-	posix__close
-	posix__fflush
 	posix__fullpath_current
 	posix__fullpath_current2
 	posix__getpedir
@@ -114,15 +112,14 @@ EXPORTS
 	posix__getsysmem
 	posix__getpagesize
 	posix__syslog
-	posix__write_file
-	posix__read_file
-	posix__get_filesize
-	posix__seek_file_offset
 	posix__random
 	posix__file_open
-	posix__file_open_always
-	posix__file_create
-	posix__file_create_always
+	posix__file_read
+	posix__file_write
+	posix__file_seek
+	posix__file_getsize
+	posix__file_close
+	posix__file_flush
 
 	posix__ipv4tou
 	posix__ipv4tos
