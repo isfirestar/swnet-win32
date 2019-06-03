@@ -20,34 +20,34 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\avltree.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\hash.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\logger.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\object.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\posix_ifos.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\posix_naos.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\posix_string.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\posix_thread.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\posix_time.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="..\libnsp\com\posix_wait.c">
-      <Filter>linbsp</Filter>
+      <Filter>com</Filter>
     </ClCompile>
     <ClCompile Include="io.c">
       <Filter>Source Files</Filter>
@@ -137,7 +137,7 @@
     <Filter Include="Head Files">
       <UniqueIdentifier>{12651b28-2e80-4568-9b42-8e56d040615b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="linbsp">
+    <Filter Include="com">
       <UniqueIdentifier>{23959695-b794-4010-b905-071a19119c88}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
