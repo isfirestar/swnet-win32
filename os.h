@@ -84,19 +84,4 @@ void os_free_memory_block( void *MemoryBlock );
 
 #define os_is_page_aligned(size)							(0 == (size % PAGE_SIZE))
 
-enum so_dbg_level {
-	kDbgLevel_Info = 0,
-	kDbgLevel_Warn,
-	kDbgLevel_Error,
-	kDbgLevel_Fatal,
-	kDbgLevel_MaximumFunction,
-};
-extern
-void os_dbg( int debugLevel, const char *logicModuleName, const char *fmt, ... );
-
-#define os_dbg_info(fmt, ...)		os_dbg(kDbgLevel_Info, __FUNCTION__, fmt, __VA_ARGS__)
-#define os_dbg_warn(fmt, ...)		os_dbg(kDbgLevel_Warn, __FUNCTION__, fmt, __VA_ARGS__)
-#define os_dbg_error(fmt, ...)		os_dbg(kDbgLevel_Error, __FUNCTION__, fmt, __VA_ARGS__)
-#define os_dbg_fatal(fmt, ...)		os_dbg(kDbgLevel_Fatal, __FUNCTION__, fmt, __VA_ARGS__)
-
 #endif

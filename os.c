@@ -1,4 +1,5 @@
 #include "os.h"
+#include "mxx.h"
 
 void *
 os_allocate_block(
@@ -42,12 +43,12 @@ uint32_t Protect
 			Protect
 			);
 		if ( NULL == MemoryBlock ) {
-			os_dbg_error("failed to call VirtualAlloc, error:%u", GetLastError() );
+			nis_call_ecr("failed to call VirtualAlloc, error:%u", GetLastError() );
 		}
 	} __except ( EXCEPTION_EXECUTE_HANDLER )
 	{
 		MemoryBlock = NULL;
-		os_dbg_error("failed to allocate virtual memory block, process handle:0x%08X, size:%u, exception code:0%08X",
+		nis_call_ecr("failed to allocate virtual memory block, process handle:0x%08X, size:%u, exception code:0%08X",
 			handleProcess, blockSizeCb, GetExceptionCode() );
 	}
 
@@ -61,7 +62,7 @@ os_free_memory_block( void * MemoryBlock ) {
 			VirtualFree( MemoryBlock, 0, MEM_RELEASE );
 		} __except ( EXCEPTION_EXECUTE_HANDLER )
 		{
-			os_dbg_error("failed to allocate virtual memory block, exception code:0%08X", GetExceptionCode() );
+			nis_call_ecr("failed to allocate virtual memory block, exception code:0%08X", GetExceptionCode() );
 		}
 	}
 }
@@ -140,11 +141,11 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 						PAGE_READWRITE
 						);
 					if ( NULL == MemoryBlock ) {
-						os_dbg_error("failed VirtualAlloc, code:0x%08X", GetLastError() );
+						nis_call_ecr("failed VirtualAlloc, code:0x%08X", GetLastError() );
 						break;
 					}
 				} __except ( EXCEPTION_EXECUTE_HANDLER ) {
-					os_dbg_error("failed to allocate virtual memory block, error code:0x%08X", GetExceptionCode() );
+					nis_call_ecr("failed to allocate virtual memory block, error code:0x%08X", GetExceptionCode() );
 					break;
 				}
 
@@ -174,7 +175,7 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 				GetCurrentProcessId()
 				);
 			if ( INVALID_HANDLE_VALUE == handleProcess ) {
-				os_dbg_error("failed OpenProcess, code:0x%08X", GetLastError() );
+				nis_call_ecr("failed OpenProcess, code:0x%08X", GetLastError() );
 				break;
 			}
 		}
@@ -188,7 +189,7 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 			&MaximumWorkingSetSize
 			);
 		if ( !Successful ) {
-			os_dbg_error("failed GetProcessWorkingSetSize, code:0x%08X", GetLastError() );
+			nis_call_ecr("failed GetProcessWorkingSetSize, code:0x%08X", GetLastError() );
 			break;
 		}
 
@@ -205,7 +206,7 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 			MaximumWorkingSetSize
 			);
 		if ( !Successful ) {
-			os_dbg_error("failed SetProcessWorkingSetSize, code:0x%08X", GetLastError() );
+			nis_call_ecr("failed SetProcessWorkingSetSize, code:0x%08X", GetLastError() );
 			break;
 		}
 
@@ -227,54 +228,4 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 	}
 
 	return MemoryBlock;
-}
-
-static PCSTR		DEBUG_OUTPUT_LEVEL_TEXTA[kDbgLevel_MaximumFunction] = { "Info", "Warning", "Error", "Fatal" };
-
-void os_dbg( int debugLevel, const char *logicModuleName, const char *fmt, ... ) {
-	va_list Vars;
-	uint32_t formatOffset;
-	char outputBuffer[1024];
-	char *currentFormatBuffer;
-	static DWORD pid = 0;
-
-	if ( !logicModuleName || !fmt || debugLevel >= kDbgLevel_MaximumFunction ) {
-		return;
-	}
-
-	va_start( Vars, fmt );
-
-	if ( 0 == pid ) {
-		pid = GetCurrentProcessId();
-	}
-
-	formatOffset = 0;
-	currentFormatBuffer = &outputBuffer[0];
-
-	formatOffset += sprintf_s(
-		&currentFormatBuffer[formatOffset],
-		cchof( outputBuffer ) - formatOffset,
-		"[%04X:%04X][%04X][%s][%s]",
-		HIWORD( pid ),
-		LOWORD( pid ),
-		GetCurrentThreadId(),
-		DEBUG_OUTPUT_LEVEL_TEXTA[debugLevel],
-		logicModuleName
-		);
-
-	formatOffset += _vsnprintf_s(
-		&currentFormatBuffer[formatOffset],
-		cchof( outputBuffer ) - formatOffset,
-		cchof( outputBuffer ) - formatOffset,
-		fmt,
-		Vars
-		);
-
-	strcat_s( outputBuffer, cchof( outputBuffer ) - formatOffset, "\r\n" );
-
-	OutputDebugStringA( outputBuffer );
-
-#if _DEBUG
-	printf( "%s", outputBuffer );
-#endif
 }

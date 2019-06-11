@@ -4,6 +4,10 @@
 #include "mxx.h"
 #include "posix_string.h"
 
+#include <iphlpapi.h>
+// Link with Iphlpapi.lib
+#pragma comment(lib, "IPHLPAPI.lib")
+
 /*++
 	For a connectionless socket (for example, type SOCK_DGRAM),
 	the operation performed by WSAConnect is merely to establish a default destination address so that the socket can be used on subsequent connection-oriented send and receive operations
@@ -25,7 +29,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		os_dbg_error( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
 		return -1;
 	}
 
@@ -45,7 +49,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 			ncb->ncb_ctx_size_ = ncb_ctx_size;
 			ctx = ( char * ) malloc( ncb_ctx_size );
 			if ( !ctx ) {
-				ncb_report_debug_information(ncb,  "fail to allocate memory for ncb context, size=%u", ncb_ctx_size );
+				nis_call_ecr("fail to allocate memory for ncb context, size=%u", ncb_ctx_size);
 				retval = -1;
 				break;
 			}
@@ -66,7 +70,7 @@ int __stdcall nis_getctx( HLNK lnk, void * user_context, int *user_context_size 
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		os_dbg_error( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
 		return -1;
 	}
 
@@ -102,7 +106,7 @@ int __stdcall nis_ctxsize( HLNK lnk )
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
-		os_dbg_error( "reference NCB object failed,link=0x%08X", lnk );
+		nis_call_ecr( "reference NCB object failed,link=0x%08X", lnk );
 		return -1;
 	}
 	size = ncb->ncb_ctx_size_;
@@ -116,7 +120,7 @@ int __stdcall nis_getver( swnet_version_t  *version )
 
 	version->major_ = 9;
 	version->minor_ = 7;
-	version->revision_ = 3;
+	version->revision_ = 6;
 	return 0;
 }
 
@@ -237,5 +241,72 @@ int __stdcall nis_getmask(HTCPLINK lnk, int *mask)
 	}
 
 	objdefr(hld);
+	return 0;
+}
+
+int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) {
+	ULONG dwRetVal, outBufLen;
+	PIP_ADAPTER_INFO pCurrAddresses, pAddresses;
+	int i;
+	int cbacquire;
+
+	if (!cbifv) {
+		return posix__mkerror(EINVAL);
+	}
+
+	if (*cbifv > 0 && !ifv) {
+		return posix__mkerror(EINVAL);
+	}
+
+	outBufLen = 0;
+	i = 0;
+	pAddresses = NULL;
+
+	dwRetVal = GetAdaptersInfo(NULL, &outBufLen);
+	while (ERROR_BUFFER_OVERFLOW == dwRetVal && i++ < 10) {
+		if (pAddresses) {
+			free(pAddresses);
+		}
+		pAddresses = (PIP_ADAPTER_INFO)malloc(outBufLen);
+		if (!pAddresses) {
+			return posix__mkerror(ENOMEM);
+		}
+		dwRetVal = GetAdaptersInfo(pAddresses, &outBufLen);
+	}
+
+	if (0 != dwRetVal) {
+		if (pAddresses) {
+			free(pAddresses);
+		}
+		return posix__mkerror(dwRetVal);
+	}
+
+	i = 0;
+	pCurrAddresses = pAddresses;
+	while (pCurrAddresses) {
+		++i;
+		pCurrAddresses = pCurrAddresses->Next;
+	}
+
+	cbacquire = i * sizeof(ifmisc_t);
+	if (!ifv || *cbifv < cbacquire) {
+		*cbifv = cbacquire;
+		return posix__mkerror(EAGAIN);
+	}
+
+	i = 0;
+	pCurrAddresses = pAddresses;
+	while (pCurrAddresses) {
+		strncpy_s(ifv[i].interface_, sizeof(ifv[i].interface_) - 1, pCurrAddresses->Description, sizeof(ifv[i].interface_) - 1);
+		ifv[i].addr_ = inet_addr(pCurrAddresses->IpAddressList.IpAddress.String);
+		ifv[i].netmask_ = inet_addr(pCurrAddresses->IpAddressList.IpMask.String);
+		ifv[i].boardcast_ = 0;
+		pCurrAddresses = pCurrAddresses->Next;
+		i++;
+	}
+
+	if (pAddresses) {
+		free(pAddresses);
+	}
 	return 0;
 }

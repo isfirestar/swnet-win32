@@ -104,6 +104,7 @@
       <CompileAsManaged>false</CompileAsManaged>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -113,7 +114,7 @@
       <ProgramDatabaseFile>$(SolutionDir)pdb\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(SolutionDir)lib\$(Configuration)\$(TargetName).lib</ImportLibrary>
+      <ImportLibrary>$(SolutionDir)lib\$(TargetName)d.lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
     </Link>
@@ -166,6 +167,7 @@
       <PrecompiledHeaderOutputFile />
       <CompileAs>CompileAsC</CompileAs>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -177,7 +179,7 @@
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
-      <ImportLibrary>$(SolutionDir)lib\$(Configuration)\$(TargetName).lib</ImportLibrary>
+      <ImportLibrary>$(SolutionDir)lib\$(TargetName).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
     </Link>
@@ -229,7 +231,7 @@
     <ClCompile Include="..\libnsp\com\posix_thread.c" />
     <ClCompile Include="..\libnsp\com\posix_time.c" />
     <ClCompile Include="..\libnsp\com\posix_wait.c" />
-    <ClCompile Include="iocp.c" />
+    <ClCompile Include="io.c" />
     <ClCompile Include="mxx.c" />
     <ClCompile Include="ncb.c" />
     <ClCompile Include="network.c" />
@@ -254,7 +256,7 @@
     <ClInclude Include="..\libnsp\icom\posix_thread.h" />
     <ClInclude Include="..\libnsp\icom\posix_time.h" />
     <ClInclude Include="..\libnsp\icom\posix_wait.h" />
-    <ClInclude Include="iocp.h" />
+    <ClInclude Include="io.h" />
     <ClInclude Include="mxx.h" />
     <ClInclude Include="ncb.h" />
     <ClInclude Include="network.h" />

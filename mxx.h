@@ -3,6 +3,8 @@
 
 #include "nis.h"
 
+#include <stdarg.h>
+
 void nis_call_ecr(const char *fmt,...);
 
 #endif
