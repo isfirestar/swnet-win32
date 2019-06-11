@@ -13,7 +13,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct epoll_object {
 	HANDLE epfd;
-	posix__boolean_t actived;
+	boolean_t actived;
 	HANDLE thread;
 	DWORD tid;
 	int load; /* load of current thread */
@@ -98,16 +98,16 @@ int __ioinit() {
 		epmgr.epos[i].epfd = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, (ULONG_PTR)&iocp_complete_routine, 1);
 		if (epmgr.epos[i].epfd < 0) {
 			nis_call_ecr("[nshost.io.epoll]:file descriptor creat failed. error:%u", GetLastError());
-			epmgr.epos[i].actived = 0;
+			epmgr.epos[i].actived = NO;
 			continue;
 		}
 
 		/* active field as a judge of operational effectiveness, as well as a control symbol of operation  */
-		epmgr.epos[i].actived = 1;
+		epmgr.epos[i].actived = YES;
 		epmgr.epos[i].thread = CreateThread(NULL, 0, &__iorun, &epmgr.epos[i], 0, &epmgr.epos[i].tid);
 		if (!epmgr.epos[i].thread) {
 			nis_call_ecr("[nshost.io.epoll]:io thread create failed. error:%u", GetLastError());
-			epmgr.epos[i].actived = 0;
+			epmgr.epos[i].actived = NO;
 		}
 	}
 
@@ -180,8 +180,8 @@ void iouninit() {
 
 	for (i = 0; i < epmgr.divisions; i++){
 		epos = &epmgr.epos[i];
-		if (epmgr.epos[i].actived){
-			posix__atomic_xchange(epos->actived, 0);
+		if (YES == epmgr.epos[i].actived){
+			posix__atomic_xchange(epos->actived, NO);
 			PostQueuedCompletionStatus(epos->epfd, IOCP_INVALID_SIZE_TRANSFER, IOCP_INVALID_COMPLETION_KEY, IOCP_INVALID_OVERLAPPED_PTR);
 			WaitForSingleObject(epos->thread, INFINITE);
 			CloseHandle(epos->thread);

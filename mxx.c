@@ -254,11 +254,11 @@ int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) {
 	int cbacquire;
 
 	if (!cbifv) {
-		return posix__mkerror(EINVAL);
+		return -EINVAL;
 	}
 
 	if (*cbifv > 0 && !ifv) {
-		return posix__mkerror(EINVAL);
+		return -EINVAL;
 	}
 
 	outBufLen = 0;
@@ -272,7 +272,7 @@ int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) {
 		}
 		pAddresses = (PIP_ADAPTER_INFO)malloc(outBufLen);
 		if (!pAddresses) {
-			return posix__mkerror(ENOMEM);
+			return -ENOMEM;
 		}
 		dwRetVal = GetAdaptersInfo(pAddresses, &outBufLen);
 	}
@@ -281,7 +281,7 @@ int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) {
 		if (pAddresses) {
 			free(pAddresses);
 		}
-		return posix__mkerror(dwRetVal);
+		return posix__makeerror(dwRetVal);
 	}
 
 	i = 0;
@@ -294,7 +294,7 @@ int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) {
 	cbacquire = i * sizeof(ifmisc_t);
 	if (!ifv || *cbifv < cbacquire) {
 		*cbifv = cbacquire;
-		return posix__mkerror(EAGAIN);
+		return -EAGAIN;
 	}
 
 	i = 0;

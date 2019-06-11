@@ -433,7 +433,7 @@ int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_
 	do {
 		buffer = (unsigned char *)malloc(cb);
 		if (!buffer) {
-			retval = RE_ERROR(ENOMEM);
+			retval = -ENOMEM;
 			break;
 		}
 
