@@ -186,6 +186,9 @@ EXPORTS
 	posix__init_synchronous_waitable_handle
 	posix__init_notification_waitable_handle
 	posix__uninit_waitable_handle
+	posix__allocate_synchronous_waitable_handle
+	posix__allocate_notification_waitable_handle
+	posix__release_waitable_handle
 	posix__waitfor_waitable_handle
 	posix__sig_waitable_handle
 	posix__block_waitable_handle
