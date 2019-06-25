@@ -55,6 +55,9 @@
     <ClCompile Include="os.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="arp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="packet.h">

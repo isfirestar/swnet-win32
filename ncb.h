@@ -55,6 +55,8 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 		int						ncb_ctx_size_;				// 用户上下文长度
 	};
 
+	unsigned char source_mac_[6];
+
 }ncb_t;
 
 void ncb_init( ncb_t * ncb, enum proto_type_t proto_type );

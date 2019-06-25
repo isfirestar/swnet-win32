@@ -42,6 +42,11 @@ EXPORTS
 	udp_write_grp
 	udp_release_grp
 
+	arp_create
+	arp_destroy
+	arp_nrequest
+	arp_request
+
 	nis_setctx
 	nis_getctx
 	nis_refctx

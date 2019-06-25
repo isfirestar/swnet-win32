@@ -246,6 +246,7 @@
     <ClCompile Include="..\libnsp\com\posix_thread.c" />
     <ClCompile Include="..\libnsp\com\posix_time.c" />
     <ClCompile Include="..\libnsp\com\posix_wait.c" />
+    <ClCompile Include="arp.c" />
     <ClCompile Include="io.c" />
     <ClCompile Include="mxx.c" />
     <ClCompile Include="ncb.c" />
