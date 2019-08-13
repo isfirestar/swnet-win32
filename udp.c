@@ -421,8 +421,6 @@ int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_
 		return -EINVAL;
 	}
 
-	nis_call_ecr("[nshost.udp.udp_write] target endpoint %s:%u", r_ipstr, r_port);
-
 	ncb = (ncb_t *)objrefr(hld);
 	if (!ncb) {
 		nis_call_ecr("[nshost.udp.udp_write] fail to reference link:%I64d", hld);
