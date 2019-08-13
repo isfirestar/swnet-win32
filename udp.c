@@ -135,7 +135,7 @@ static int udp_update_opts(ncb_t *ncb) {
 static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 {
 	udp_cinit_t *ctx = ( udp_cinit_t * ) ncb_ctx;
-	int behavior;
+	BOOL behavior;
 	ncb_t *ncb = ( ncb_t * ) user_buffer;
 	uint32_t bytes_returned;
 	struct sockaddr_in conn_addr;
@@ -148,7 +148,7 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 	ncb_init( ncb, kProto_UDP );
 	ncb->hld = h;
 	ncb->sockfd = so_create(SOCK_DGRAM, IPPROTO_UDP);
-	if (ncb->sockfd < 0) {
+	if (ncb->sockfd == INVALID_SOCKET) {
 		return -1;
 	}
 
@@ -186,7 +186,7 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 
 		// 关闭因对端被强制无效化，导致的本地 io 错误
 		// 这项属性打开情形下会导致 WSAECONNRESET 错误返回
-		behavior = -1;
+		behavior = FALSE;
 		if (WSAIoctl(ncb->sockfd, SIO_UDP_CONNRESET, &behavior, sizeof(behavior), NULL, 0, &bytes_returned, NULL, NULL) < 0) {
 			nis_call_ecr("[nshost.udp.udp_entry] syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u,link:%I64d", WSAGetLastError(), ncb->hld);
 			break;
@@ -420,6 +420,8 @@ int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_
 	if (!r_ipstr || (0 == r_port) || (cb <= 0) || (lnk < 0) || (cb > MAX_UDP_UNIT)) {
 		return -EINVAL;
 	}
+
+	nis_call_ecr("[nshost.udp.udp_write] target endpoint %s:%u", r_ipstr, r_port);
 
 	ncb = (ncb_t *)objrefr(hld);
 	if (!ncb) {
@@ -724,7 +726,7 @@ int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) {
         /*设置回环许可*/
         int loop = 1;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&loop, sizeof (loop));
-        if (retval < 0) {
+        if (retval == SOCKET_ERROR) {
             break;
         }
 
@@ -738,10 +740,11 @@ int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) {
         ncb->mreq->imr_multiaddr.s_addr = inet_addr(g_ipstr);
         ncb->mreq->imr_interface.s_addr = ncb->local_addr.sin_addr.s_addr;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
-        if (retval < 0){
+        if (retval == SOCKET_ERROR){
             break;
         }
 
+		retval = 0;
     } while (0);
 
     objdefr(hld);
@@ -758,11 +761,12 @@ int __stdcall udp_dropgrp(HUDPLINK lnk){
     }
 
     ncb = objrefr(hld);
-    if (!ncb) return -1;
+	if (!ncb) {
+		return -1;
+	}
 
+	retval = -1;
     do{
-        retval = -1;
-
         if (!(ncb->flag_ & UDP_FLAG_MULTICAST) || !ncb->mreq) {
             break;
         }
@@ -770,13 +774,17 @@ int __stdcall udp_dropgrp(HUDPLINK lnk){
 		/*还原回环许可*/
         int loop = 0;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&loop, sizeof (loop));
-        if (retval < 0) {
+        if (retval == SOCKET_ERROR) {
             break;
         }
 
         /*离开多播组*/
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
+		if (retval == SOCKET_ERROR) {
+			break;
+		}
 
+		retval = 0;
     }while(0);
 
     objdefr(hld);

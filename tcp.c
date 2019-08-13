@@ -341,7 +341,7 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		ncb->hld = h;
 
 		ncb->sockfd = so_create(SOCK_STREAM, IPPROTO_TCP);
-		if (ncb->sockfd < 0) {
+		if (ncb->sockfd == INVALID_SOCKET) {
 			break;
 		}
 
@@ -1038,7 +1038,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 	r_addr.sin_port = htons( port );
 
 	do {
-		if (connect(ncb->sockfd, (const struct sockaddr *)&r_addr, sizeof(r_addr)) < 0) {
+		if (connect(ncb->sockfd, (const struct sockaddr *)&r_addr, sizeof(r_addr)) == SOCKET_ERROR) {
 			nis_call_ecr("[nshost.tcp.tcp_connect] syscall connect(2) failed,target endpoint=%s:%u, error:%u, link:%I64d", r_ipstr, port, WSAGetLastError(), ncb->hld);
 			break;
 		}
@@ -1303,7 +1303,7 @@ int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int
 
 	if ( kProto_TCP == ncb->proto_type ) {
 		retval = setsockopt(ncb->sockfd, level, opt, val, len);
-		if ( retval < 0 ) {
+		if ( retval == SOCKET_ERROR ) {
 			nis_call_ecr("[nshost.tcp.tcp_getaddr]  syscall setsockopt(2) failed,error code:%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}
@@ -1328,7 +1328,7 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 
 	if ( kProto_TCP == ncb->proto_type ) {
 		retval = getsockopt(ncb->sockfd, level, opt, OptVal, len);
-		if ( retval < 0 ) {
+		if ( retval == SOCKET_ERROR ) {
 			nis_call_ecr("[nshost.tcp.tcp_getopt] syscall failed getsockopt ,error code:%u,link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}

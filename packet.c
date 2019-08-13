@@ -10,7 +10,9 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 	int retval = -1;
 	void *p_buffer = NULL;
 
-	if ( !output || h < 0 ) return -1;
+	if (!output || h < 0) {
+		return -1;
+	}
 
 	packet = ( packet_t * ) malloc( sizeof( packet_t ) );
 	if ( !packet ) {
@@ -170,7 +172,8 @@ int asio_tcp_send( packet_t *packet )
 		MSG_DONTROUTE,
 #endif
 		&packet->overlapped_, NULL );
-	if ( retval < 0 ) {
+	if ( retval == SOCKET_ERROR ) {
+		retval = -1;
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
 			retval = 0;
 		} else {
@@ -199,10 +202,11 @@ int asio_tcp_recv( packet_t * packet )
 	wsb[0].buf = ( CHAR * ) packet->irp_;
 
 	retval = WSARecv( ncb->sockfd, wsb, 1, &packet->size_completion_, &packet->flag_, &packet->overlapped_, NULL );
-	if ( retval < 0 ) {
+	if ( retval == SOCKET_ERROR ) {
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
 			retval = 0;
 		} else {
+			retval = -1;
 			nis_call_ecr("[nshost.packet.asio_tcp_recv] syscall WSARecv failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld );
 		}
 	}
@@ -271,10 +275,11 @@ int asio_udp_recv( packet_t * packet )
 
 	retval = WSARecvFrom(ncb->sockfd, wsb, 1, &packet->size_completion_, &packet->flag_,
 		( struct sockaddr * )&packet->remote_addr, &packet->from_length_, &packet->overlapped_, NULL );
-	if ( retval < 0 ) {
+	if (retval == SOCKET_ERROR) {
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
 			retval = 0;
 		} else {
+			retval = -1;
 			nis_call_ecr("[nshost.packet.asio_udp_recv] syscall WSARecvFrom failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}
@@ -308,9 +313,11 @@ int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port )
 	wsb[0].len = packet->size_for_req_;
 	wsb[0].buf = ( CHAR * ) packet->irp_;
 
+	retval = 0;
 	retval = WSASendTo(ncb->sockfd, wsb, 1, &packet->size_completion_, 0,//MSG_DONTROUTE,
 		( const struct sockaddr * )&packet->remote_addr, sizeof( struct sockaddr ), NULL, NULL );
-	if ( retval < 0 ) {
+	if (retval == SOCKET_ERROR) {
+		retval = -1;
 		nis_call_ecr("[nshost.packet.syio_udp_send] syscall WSASendTo failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 	}
 
@@ -339,7 +346,7 @@ int syio_v_disconnect( ncb_t * ncb )
 
 	// 面向无连接的0地址结构连接操作， 即为反向设置伪连接， 反向设置伪连接后， UDP对象可以继续处理源连接以外的地址所得的包
 	retval = WSAConnect(ncb->sockfd, (const struct sockaddr *)&addr, sizeof(addr), NULL, NULL, NULL, NULL);
-	if ( retval < 0 ) {
+	if (retval == SOCKET_ERROR) {
 		nis_call_ecr("[nshost.packet.syio_v_disconnect] syscall WSAConnect failed,error code=%u,  link:%I64d", WSAGetLastError(), ncb->hld);
 	}
 	return retval;
@@ -350,7 +357,7 @@ int syio_v_connect( ncb_t * ncb, const struct sockaddr_in *r_addr )
 	int retval;
 
 	retval = WSAConnect(ncb->sockfd, (const struct sockaddr *)r_addr, sizeof(struct sockaddr_in), NULL, NULL, NULL, NULL);
-	if ( retval < 0 ) {
+	if (retval == SOCKET_ERROR) {
 		nis_call_ecr("[nshost.packet.syio_v_connect] syscall WSAConnect failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		return -1;
 	}

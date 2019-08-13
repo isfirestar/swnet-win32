@@ -133,7 +133,6 @@ EXPORTS
 	posix__chord32
 	posix__chord16
 
-	posix__trim
 	posix__strisdigit
 	posix__strerror
 	posix__strerror2
@@ -161,8 +160,6 @@ EXPORTS
 	posix__wcscasecmp
 	posix__strncasecmp
 	posix__wcsncasecmp
-	posix__strtrim
-	posix__strtrimcpy
 
 	posix__pthread_create
 	posix__pthread_self

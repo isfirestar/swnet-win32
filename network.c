@@ -127,8 +127,8 @@ int so_asio_count()
 
 SOCKET so_create( int type, int protocol )
 {
-	SOCKET s = WSASocket( PF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED );
-	if ( s < 0 ) {
+	SOCKET s = WSASocket( AF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED );
+	if ( INVALID_SOCKET == s ) {
 		nis_call_ecr( "[nshost.network.so_create] syscall WSASocket failed,error code=%u", WSAGetLastError() );
 	}
 	return s;
@@ -148,7 +148,7 @@ int so_bind( SOCKET s, uint32_t ip, uint16_t port )
 	addr.sin_family = AF_INET;
 
 	retval = bind(s, ( const struct sockaddr * )&addr, sizeof( struct sockaddr ) );
-	if ( retval < 0 ) {
+	if ( retval == SOCKET_ERROR ) {
 		nis_call_ecr( "[nshost.network.so_bind] syscall bind(2) failed,error code=%u", WSAGetLastError() );
 	}
 	return retval;
