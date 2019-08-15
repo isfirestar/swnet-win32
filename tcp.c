@@ -536,6 +536,12 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		WSAGetAcceptExSockAddrs( packet->irp_, 0, sizeof( struct sockaddr_in ) + 16, sizeof( struct sockaddr_in ) + 16,
 			&l_addr, &l_len, &r_addr, &r_len );
 
+		/* copy the context from listen fd to accepted one in needed */
+		if (ncb_listen->attr & LINKATTR_TCP_UPDATE_ACCEPT_CONTEXT) {
+			ncb_accepted->attr = ncb_listen->attr;
+			memcpy(&ncb_accepted->tcp_tst_, &ncb_listen->tcp_tst_, sizeof(tst_t));
+		}
+
 		// 将取得的链接属性赋予accept上来的ncb_t
 		pr = ( struct sockaddr_in * )r_addr;
 		ncb_accepted->remote_addr.sin_family = pr->sin_family;
