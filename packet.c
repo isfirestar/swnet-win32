@@ -223,10 +223,14 @@ int asio_tcp_connect(packet_t *packet){
 	ncb_t *ncb;
 	int retval;
 
-	if (!packet) return -1;
+	if (!packet) {
+		return -1;
+	}
 
 	ncb = objrefr(packet->link);
-	if (!ncb) return -1;
+	if (!ncb) {
+		return -1;
+	}
 
 	retval = -1;
 	do {

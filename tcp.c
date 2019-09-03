@@ -157,10 +157,12 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 	}
 
 	if (0 == packet->size_for_translation_) {
+		nis_call_ecr("[nshost.tcp.tcp_lb_assemble] size of translation equal to zero, link:%I64d", ncb->hld);
 		return -1;
 	}
 
 	if (!ncb->tcp_tst_.parser_) {
+		nis_call_ecr("[nshost.tcp.tcp_lb_assemble] tcp parser proc is empty, link:%I64d", ncb->hld);
 		return -1;
 	}
 
@@ -169,6 +171,7 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 
 	// 从大包缓冲区中，取得大包需要的长度
 	if ( ncb->tcp_tst_.parser_( ncb->lb_data_, ncb->tcp_tst_.cb_, &user_size ) < 0 ) {
+		nis_call_ecr("[nshost.tcp.tcp_lb_assemble] tcp parser call failed, link:%I64d", ncb->hld);
 		return -1;
 	}
 
@@ -247,7 +250,9 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 	while ( TRUE ) {
 
 		// 如果整体包长度， 不足以填充包头， 则必须进行继续接收操作
-		if ( current_usefule_size < ncb->tcp_tst_.cb_ ) break;
+		if (current_usefule_size < ncb->tcp_tst_.cb_) {
+			break;
+		}
 
 		// 底层协议交互给协议模板处理， 处理失败则解包操作无法继续
 		if ( ncb->tcp_tst_.parser_( ( char * ) packet->ori_buffer_ + current_parse_offset, ncb->tcp_tst_.cb_, &user_size ) < 0 ) {
@@ -267,6 +272,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 			if ( ncb_mark_lb( ncb, total_packet_length, current_usefule_size, ( char * ) packet->ori_buffer_ + current_parse_offset ) < 0 ) {
 				return -1;
 			}
+			nis_call_ecr("[nshost.tcp.tcp_prase_logic_packet] large packet marked, link:%I64d, size:%u", ncb->hld, total_packet_length);
 			packet->analyzed_offset_ = 0;
 			return 0;
 		}
@@ -275,7 +281,9 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		logic_revise_acquire_size = total_packet_length;
 
 		// 当前可用长度不足以填充逻辑包长度， 需要继续接收数据
-		if ( current_usefule_size < logic_revise_acquire_size ) break;
+		if (current_usefule_size < logic_revise_acquire_size) {
+			break;
+		}
 
 		// 回调到用户例程, 使用其实地址累加解析偏移， 直接赋予回调例程的结构指针， 因为const限制， 调用线程不应该刻意修改该串的值
 		c_event.Ln.Tcp.Link = (HTCPLINK)ncb->hld;
@@ -287,7 +295,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 			c_data.e.Packet.Size = user_size;
 			c_data.e.Packet.Data = (const char *)((char *)packet->ori_buffer_ + current_parse_offset + ncb->tcp_tst_.cb_);
 		}
-
+		
 		if (ncb->nis_callback) {
 			ncb->nis_callback(&c_event, &c_data);
 		}
@@ -589,7 +597,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 	if (tcprefr(packet->accepted_link, &ncb_accepted) >= 0) {
 		retval = tcp_syn_copy( ncb_listen, ncb_accepted, packet );
 		if ( retval >= 0 ) {
-			retval = allocate_packet(ncb_accepted->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet_recv);
+			retval = allocate_packet(ncb_accepted->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kVirtualHeap, &packet_recv);
 			if ( retval >= 0 ) {
 				retval = asio_tcp_recv(packet_recv);
 			}
@@ -692,6 +700,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 		/* 解析 TCP 包为符合协议规范的逻辑包 */
 		retval = tcp_prase_logic_packet( ncb, packet );
 		if ( retval < 0 ) {
+			nis_call_ecr("[nshost.tcp.tcp_dispatch_io_recv] fail to parse logic packet, link:%I64d", packet->link);
 			break;
 		}
 
@@ -749,22 +758,27 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 			getpeername(ncb->sockfd, (struct sockaddr *)&ncb->remote_addr, &addrlen);
 		}
 
-		/* notify the connected result */
-		ncb_post_connected(ncb);
-
 		/* 成功连接对端， 应该投递一个接收数据的IRP， 允许这个连接接收数据 */
-		if (allocate_packet(ncb->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet_recv) < 0) {
+		if (allocate_packet(ncb->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kVirtualHeap, &packet_recv) < 0) {
+			nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] alloc packet failed,link:%I64d", ncb->hld);
 			break;
 		}
 
 		if (asio_tcp_recv(packet_recv) < 0) {
+			nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] asio_tcp_recv failed,link:%I64d", ncb->hld);
 			tcp_shutdown_by_packet(packet_recv);
 			break;
 		}
-
+		
+		/* notify the connected result */
+		ncb_post_connected(ncb);
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] tcp asynchronous connect success,link:%I64d", ncb->hld);
+		objdefr(ncb->hld);
+		return;
 	} while ( 0 );
 
 	objdefr(ncb->hld);
+	objclos(ncb->hld);
 }
 
 static
@@ -1059,10 +1073,8 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 			}
 		}
 
-		ncb_post_connected(ncb);
-
 		// 成功连接对端， 应该投递一个接收数据的IRP， 允许这个连接接收数据
-		if (allocate_packet(ncb->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet) < 0) {
+		if (allocate_packet(ncb->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kVirtualHeap, &packet) < 0) {
 			break;
 		}
 
@@ -1070,6 +1082,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 			break;
 		}
 
+		ncb_post_connected(ncb);
 		inet_pton( AF_INET, r_ipstr, &ncb->remote_addr.sin_addr );
 		ncb->remote_addr.sin_port = htons( port );
 
