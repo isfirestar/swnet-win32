@@ -27,6 +27,7 @@ typedef struct _TCP_INIT_CONTEXT {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define TCP_MAXIMUM_SENDER_CACHED_CNT				( 5120 ) // 以每个包64KB计, 最多可以接受 327MB 的发送堆积
+#define TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK		( 500 )
 static long __tcp_global_sender_cached_cnt = 0; // TCP 全局缓存的发送包个数(未发出的链表长度)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,14 +99,16 @@ int tcprefr(objhld_t hld, ncb_t **ncb) {
 
 
 static
-void tcp_try_write( ncb_t * ncb )
+int tcp_try_write( ncb_t * ncb )
 {
 	packet_t *next_packet;
+	int retval;
 
 	if (!ncb) {
-		return;
+		return -1;
 	}
 
+	retval = -1;
 	EnterCriticalSection( &ncb->tcp_lst_lock_ );
 
 	do {
@@ -135,11 +138,14 @@ void tcp_try_write( ncb_t * ncb )
 			tcp_shutdown_by_packet 会释放本包内存 */
 		if (asio_tcp_send(next_packet) < 0) {
 			tcp_shutdown_by_packet(next_packet);
+		} else {
+			retval = 0;
 		}
-
+		
 	} while (0);
 
 	LeaveCriticalSection( &ncb->tcp_lst_lock_ );
+	return retval;
 }
 
 static
@@ -427,7 +433,7 @@ void tcp_unload( objhld_t h, void * user_buffer )
 		list_del_init(&packet->pkt_lst_entry_);
 
 		// 递减全局的发送缓冲个数
-		InterlockedDecrement( &__tcp_global_sender_cached_cnt );
+		InterlockedDecrement(&__tcp_global_sender_cached_cnt);
 	}
 	LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
@@ -650,7 +656,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 	LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
 	/* 递减累积的缓冲区个数(全局/链无关的) */
-	InterlockedDecrement( &__tcp_global_sender_cached_cnt );
+	InterlockedDecrement(&__tcp_global_sender_cached_cnt);
 
 	/* 如果尝试发送过程中发生系统调用失败， 则包缓冲区将被销毁， 同时链接将被关闭
 		继续尝试发下一个包 */
@@ -805,7 +811,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
 		// 递减全局的发送缓冲个数
-		InterlockedDecrement( &__tcp_global_sender_cached_cnt );
+		InterlockedDecrement(&__tcp_global_sender_cached_cnt);
 
 		// 尝试下一个发送操作
 		tcp_try_write( ncb );
@@ -1255,13 +1261,12 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
 		// 自由判断是否投递异步请求的合适时机
-		tcp_try_write( ncb );
-
-		retval = 0;
+		retval = tcp_try_write(ncb);
 	} while ( FALSE );
 
 	if ( retval < 0 ) {
-		InterlockedDecrement( &__tcp_global_sender_cached_cnt ); // 抬高计数后未能正确插入缓冲队列
+		// 抬高计数后未能正确插入缓冲队列
+		InterlockedDecrement(&__tcp_global_sender_cached_cnt);
 		if ( buffer ) {
 			free( buffer );
 		}
