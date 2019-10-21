@@ -429,8 +429,9 @@ void tcp_unload( objhld_t h, void * user_buffer )
 	while (!list_empty(&ncb->tcp_waitting_list_head_)) {
 		packet = list_first_entry( &ncb->tcp_waitting_list_head_, packet_t, pkt_lst_entry_ );
 		assert(NULL != packet);
-		freepkt( packet );
 		list_del_init(&packet->pkt_lst_entry_);
+		freepkt( packet );
+		
 
 		// 递减全局的发送缓冲个数
 		InterlockedDecrement(&__tcp_global_sender_cached_cnt);
@@ -1261,7 +1262,8 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
 		// 自由判断是否投递异步请求的合适时机
-		retval = tcp_try_write(ncb);
+		tcp_try_write(ncb);
+		retval = 0;
 	} while ( FALSE );
 
 	if ( retval < 0 ) {
