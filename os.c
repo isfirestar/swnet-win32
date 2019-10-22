@@ -54,8 +54,8 @@ uint32_t Protect
 	return MemoryBlock;
 }
 
-VOID
-os_free_memory_block( void * MemoryBlock ) {
+VOID os_free_memory_block( void * MemoryBlock ) 
+{
 	if ( NULL != MemoryBlock ) {
 		__try {
 			VirtualFree( MemoryBlock, 0, MEM_RELEASE );
@@ -65,11 +65,7 @@ os_free_memory_block( void * MemoryBlock ) {
 	}
 }
 
-int
-os_unlock_and_free_virtual_pages(
- void * MemoryBlock,
- uint32_t Size
-)
+int os_unlock_and_free_virtual_pages( void * MemoryBlock, uint32_t Size)
 {
 	if ( NULL != MemoryBlock ) {
 		VirtualUnlock( MemoryBlock, Size );
@@ -86,8 +82,8 @@ pMemoryBlock[_In_]		需要提升为非分页池的虚拟内存地址, 如果参�
 Size[_In_]					需要提升或申请的内存块大小， 必须页对齐
 RET						操作成功返回提升或申请后提升的缓冲区指针， 失败返回 NULL
 --*/
-void *
-os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
+void *os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) 
+{
 	SIZE_T MinimumWorkingSetSize;
 	SIZE_T MaximumWorkingSetSize;
 	int Successful;

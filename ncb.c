@@ -79,14 +79,16 @@ void ncb_unmark_lb( ncb_t *ncb )
 	}
 }
 
-int ncb_set_rcvtimeo(ncb_t *ncb, struct timeval *timeo){
+int ncb_set_rcvtimeo(ncb_t *ncb, struct timeval *timeo)
+{
     if (ncb && timeo > 0){
         return setsockopt(ncb->sockfd, SOL_SOCKET, SO_RCVTIMEO, (const void *)timeo, sizeof(struct timeval));
     }
     return -EINVAL;
 }
 
-int ncb_get_rcvtimeo(ncb_t *ncb){
+int ncb_get_rcvtimeo(ncb_t *ncb)
+{
     if (ncb){
          socklen_t optlen =sizeof(ncb->rcvtimeo);
         return getsockopt(ncb->sockfd, SOL_SOCKET, SO_RCVTIMEO, (void *__restrict)&ncb->rcvtimeo, &optlen);
@@ -94,7 +96,8 @@ int ncb_get_rcvtimeo(ncb_t *ncb){
     return -EINVAL;
 }
 
-int ncb_set_sndtimeo(ncb_t *ncb, struct timeval *timeo){
+int ncb_set_sndtimeo(ncb_t *ncb, struct timeval *timeo)
+{
     if (ncb && timeo > 0){
         return setsockopt(ncb->sockfd, SOL_SOCKET, SO_SNDTIMEO, (const void *)timeo, sizeof(struct timeval));
     }
@@ -109,7 +112,8 @@ int ncb_get_sndtimeo(ncb_t *ncb){
     return -EINVAL;
 }
 
-int ncb_set_iptos(ncb_t *ncb, int tos){
+int ncb_set_iptos(ncb_t *ncb, int tos)
+{
     unsigned char type_of_service = (unsigned char )tos;
     if (ncb && type_of_service){
         return setsockopt(ncb->sockfd, IPPROTO_IP, IP_TOS, (const void *)&type_of_service, sizeof(type_of_service));
@@ -117,7 +121,8 @@ int ncb_set_iptos(ncb_t *ncb, int tos){
     return -EINVAL;
 }
 
-int ncb_get_iptos(ncb_t *ncb){
+int ncb_get_iptos(ncb_t *ncb)
+{
     if (ncb){
         socklen_t optlen =sizeof(ncb->iptos);
         return getsockopt(ncb->sockfd, IPPROTO_IP, IP_TOS, (void *__restrict)&ncb->iptos, &optlen);
@@ -125,7 +130,8 @@ int ncb_get_iptos(ncb_t *ncb){
     return -EINVAL;
 }
 
-int ncb_set_window_size(ncb_t *ncb, int dir, int size){
+int ncb_set_window_size(ncb_t *ncb, int dir, int size)
+{
     if (ncb){
         return setsockopt(ncb->sockfd, SOL_SOCKET, dir, (const void *)&size, sizeof(size));
     }
@@ -133,7 +139,8 @@ int ncb_set_window_size(ncb_t *ncb, int dir, int size){
      return -EINVAL;
 }
 
-int ncb_get_window_size(ncb_t *ncb, int dir, int *size){
+int ncb_get_window_size(ncb_t *ncb, int dir, int *size)
+{
     if (ncb && size){
         socklen_t optlen = sizeof(int);
         if (getsockopt(ncb->sockfd, SOL_SOCKET, dir, (void *__restrict)size, &optlen) < 0){
@@ -144,7 +151,8 @@ int ncb_get_window_size(ncb_t *ncb, int dir, int *size){
      return -EINVAL;
 }
 
-int ncb_set_linger(ncb_t *ncb, int onoff, int lin){
+int ncb_set_linger(ncb_t *ncb, int onoff, int lin)
+{
     struct linger lgr;
 
     if (!ncb){
@@ -156,7 +164,8 @@ int ncb_set_linger(ncb_t *ncb, int onoff, int lin){
     return setsockopt(ncb->sockfd, SOL_SOCKET, SO_LINGER, (char *) &lgr, sizeof ( struct linger));
 }
 
-int ncb_get_linger(ncb_t *ncb, int *onoff, int *lin) {
+int ncb_get_linger(ncb_t *ncb, int *onoff, int *lin) 
+{
     struct linger lgr;
     socklen_t optlen = sizeof (lgr);
 
@@ -179,14 +188,16 @@ int ncb_get_linger(ncb_t *ncb, int *onoff, int *lin) {
     return 0;
 }
 
-int ncb_set_keepalive(ncb_t *ncb, int enable) {
+int ncb_set_keepalive(ncb_t *ncb, int enable) 
+{
     if (ncb) {
         return setsockopt(ncb->sockfd, SOL_SOCKET, SO_KEEPALIVE, (const char *) &enable, sizeof ( enable));
     }
     return -EINVAL;
 }
 
-int ncb_get_keepalive(ncb_t *ncb, int *enabled){
+int ncb_get_keepalive(ncb_t *ncb, int *enabled)
+{
     if (ncb && enabled) {
         socklen_t optlen = sizeof(int);
         return getsockopt(ncb->sockfd, SOL_SOCKET, SO_KEEPALIVE, (void *__restrict)enabled, &optlen);
@@ -194,7 +205,8 @@ int ncb_get_keepalive(ncb_t *ncb, int *enabled){
     return -EINVAL;
 }
 
-void ncb_post_preclose(const ncb_t *ncb) {
+void ncb_post_preclose(const ncb_t *ncb) 
+{
 	nis_event_t c_event;
 	tcp_data_t c_data;
 
@@ -208,7 +220,8 @@ void ncb_post_preclose(const ncb_t *ncb) {
 	}
 }
 
-void ncb_post_close(const ncb_t *ncb) {
+void ncb_post_close(const ncb_t *ncb) 
+{
 	nis_event_t c_event;
 
 	if (ncb) {
@@ -220,7 +233,8 @@ void ncb_post_close(const ncb_t *ncb) {
 	}
 }
 
-void ncb_post_recvdata(const ncb_t *ncb, int cb, const unsigned char *data) {
+void ncb_post_recvdata(const ncb_t *ncb, int cb, const unsigned char *data)
+{
 	nis_event_t c_event;
 	tcp_data_t c_data;
 
@@ -235,7 +249,8 @@ void ncb_post_recvdata(const ncb_t *ncb, int cb, const unsigned char *data) {
 	}
 }
 
-void ncb_post_accepted(const ncb_t *ncb, HTCPLINK link) {
+void ncb_post_accepted(const ncb_t *ncb, HTCPLINK link) 
+{
 	nis_event_t c_event;
 	tcp_data_t c_data;
 
@@ -249,7 +264,8 @@ void ncb_post_accepted(const ncb_t *ncb, HTCPLINK link) {
 	}
 }
 
-void ncb_post_connected(const ncb_t *ncb) {
+void ncb_post_connected(const ncb_t *ncb) 
+{
 	nis_event_t c_event;
 
 	if (ncb) {

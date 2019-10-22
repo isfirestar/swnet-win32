@@ -1,4 +1,4 @@
-#include "network.h"
+ï»¿#include "network.h"
 #include "ncb.h"
 #include "packet.h"
 #include "io.h"
@@ -38,13 +38,13 @@ static void arp_unload(objhld_t h, void * user_buffer)
 		return;
 	}
 
-	/* ¹Ø±ÕÇ°ÊÂ¼ş */
+	/* å…³é—­å‰äº‹ä»¶ */
 	ncb_post_preclose(ncb);
 
-	/* ¹Ø±ÕÄÚ²¿Ì×½Ó×Ö */
+	/* å…³é—­å†…éƒ¨å¥—æ¥å­— */
 	ioclose(ncb);
 
-	/* ÊÍ·ÅÓÃ»§ÉÏÏÂÎÄÊı¾İÖ¸Õë */
+	/* é‡Šæ”¾ç”¨æˆ·ä¸Šä¸‹æ–‡æ•°æ®æŒ‡é’ˆ */
 	if (ncb->ncb_ctx_ && 0 != ncb->ncb_ctx_size_) {
 		free(ncb->ncb_ctx_);
 	}
@@ -58,7 +58,7 @@ int get_eth_MAC(const char *ip, unsigned char mac[6])
 	int retval;
 	ULONG ulSize;
 	PIP_ADAPTER_INFO pInfo = NULL;
-	int temp = GetAdaptersInfo(pInfo, &ulSize);//µÚÒ»´¦µ÷ÓÃ£¬»ñÈ¡»º³åÇø´óĞ¡
+	int temp = GetAdaptersInfo(pInfo, &ulSize);//ç¬¬ä¸€å¤„è°ƒç”¨ï¼Œè·å–ç¼“å†²åŒºå¤§å°
 	pInfo = (PIP_ADAPTER_INFO)malloc(ulSize);
 	temp = GetAdaptersInfo(pInfo, &ulSize);
 

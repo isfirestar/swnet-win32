@@ -22,7 +22,8 @@ int udp_get_boardcast( ncb_t *ncb, int *enabled );
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static
-int udprefr(objhld_t hld, ncb_t **ncb) {
+int udprefr(objhld_t hld, ncb_t **ncb) 
+{
 	if (hld < 0 || !ncb) {
 		return -ENOENT;
 	}
@@ -118,7 +119,8 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	objdefr(ncb->hld);
 }
 
-static int udp_update_opts(ncb_t *ncb) {
+static int udp_update_opts(ncb_t *ncb) 
+{
 	static const int RECV_BUFFER_SIZE = 0xFFFF;
     static const int SEND_BUFFER_SIZE = 0xFFFF;
 
@@ -230,7 +232,8 @@ static void udp_unload( objhld_t h, void * user_buffer )
 	ncb_post_close(ncb);
 }
 
-static objhld_t udp_allocate_object(const udp_cinit_t *ctx) {
+static objhld_t udp_allocate_object(const udp_cinit_t *ctx) 
+{
 	ncb_t *ncb;
 	objhld_t h;
 	int retval;
@@ -381,7 +384,8 @@ HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ip
 }
 
 static
-int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const char* r_ipstr, uint16_t r_port)  {
+int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const char* r_ipstr, uint16_t r_port)  
+{
 	int wcb;
 	int offset;
 	struct sockaddr_in addr;
@@ -702,7 +706,8 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 	return retval;
 }
 
-int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) {
+int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) 
+{
     ncb_t *ncb;
     objhld_t hld = (objhld_t) lnk;
     int retval;
@@ -749,7 +754,8 @@ int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) {
     return retval;
 }
 
-int __stdcall udp_dropgrp(HUDPLINK lnk){
+int __stdcall udp_dropgrp(HUDPLINK lnk)
+{
     ncb_t *ncb;
     objhld_t hld = (objhld_t) lnk;
     int retval;
@@ -789,14 +795,16 @@ int __stdcall udp_dropgrp(HUDPLINK lnk){
     return retval;
 }
 
-int udp_set_boardcast(ncb_t *ncb, int enable) {
+int udp_set_boardcast(ncb_t *ncb, int enable) 
+{
     if (ncb) {
         return setsockopt(ncb->sockfd, SOL_SOCKET, SO_BROADCAST, (const void *) &enable, sizeof (enable));
     }
     return -EINVAL;
 }
 
-int udp_get_boardcast(ncb_t *ncb, int *enabled) {
+int udp_get_boardcast(ncb_t *ncb, int *enabled) 
+{
     if (ncb && enabled) {
         socklen_t optlen = sizeof (int);
         return getsockopt(ncb->sockfd, SOL_SOCKET, SO_BROADCAST, (void * __restrict)enabled, &optlen);

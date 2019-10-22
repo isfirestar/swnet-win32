@@ -78,7 +78,8 @@ static int tcp_get_nodelay( ncb_t *ncb, int *set );
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static
-int tcprefr(objhld_t hld, ncb_t **ncb) {
+int tcprefr(objhld_t hld, ncb_t **ncb) 
+{
 	if (hld < 0 || !ncb) {
 		return -EINVAL;
 	}
@@ -321,7 +322,8 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 	return 0;
 }
 
-int tcp_update_opts(ncb_t *ncb) {
+int tcp_update_opts(ncb_t *ncb) 
+{
     if (!ncb) {
         return -1;
     }
@@ -453,7 +455,8 @@ void tcp_unload( objhld_t h, void * user_buffer )
 }
 
 static
-objhld_t tcp_allocate_object(const tcp_cinit_t *ctx) {
+objhld_t tcp_allocate_object(const tcp_cinit_t *ctx) 
+{
 	ncb_t *ncb;
 	objhld_t h;
 	int retval;
@@ -1367,7 +1370,8 @@ int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *l
 //	Windows 10, version 1703[desktop apps only]
 //	Minimum supported server
 //	Windows Server 2016[desktop apps only]
-int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp) {
+int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp) 
+{
 	//WSAIoctl(ncb->sockfd, SIO_TCP_INFO,
 	//	(LPVOID)lpvInBuffer,   // pointer to a DWORD
 	//	(DWORD)cbInBuffer,    // size, in bytes, of the input buffer
@@ -1380,7 +1384,8 @@ int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp) {
 	return -1;
 }
 
-int tcp_setmss(ncb_t *ncb, int mss) {
+int tcp_setmss(ncb_t *ncb, int mss) 
+{
     if (ncb && mss > 0) {
         return setsockopt(ncb->sockfd, IPPROTO_TCP, TCP_MAXSEG, (const void *) &mss, sizeof(mss));
     }
@@ -1388,7 +1393,8 @@ int tcp_setmss(ncb_t *ncb, int mss) {
     return -EINVAL;
 }
 
-int tcp_getmss(ncb_t *ncb){
+int tcp_getmss(ncb_t *ncb)
+{
     if (ncb){
         socklen_t lenmss = sizeof(ncb->mss);
         return getsockopt(ncb->sockfd, IPPROTO_TCP, TCP_MAXSEG, (void *__restrict)&ncb->mss, &lenmss);
@@ -1404,7 +1410,8 @@ int tcp_set_nodelay(ncb_t *ncb, int set){
     return -EINVAL;
 }
 
-int tcp_get_nodelay(ncb_t *ncb, int *set) {
+int tcp_get_nodelay(ncb_t *ncb, int *set) 
+{
     if (ncb && set) {
         socklen_t optlen = sizeof(int);
         return getsockopt(ncb->sockfd, IPPROTO_TCP, TCP_NODELAY, (void *__restrict)set, &optlen);
@@ -1412,7 +1419,8 @@ int tcp_get_nodelay(ncb_t *ncb, int *set) {
     return -EINVAL;
 }
 
-int __stdcall tcp_setattr(HTCPLINK lnk, int attr, int enable) {
+int __stdcall tcp_setattr(HTCPLINK lnk, int attr, int enable) 
+{
 	ncb_t *ncb;
 	int retval;
 
@@ -1437,7 +1445,8 @@ int __stdcall tcp_setattr(HTCPLINK lnk, int attr, int enable) {
 	return retval;
 }
 
-int __stdcall tcp_getattr(HTCPLINK lnk, int attr, int *enabled) {
+int __stdcall tcp_getattr(HTCPLINK lnk, int attr, int *enabled) 
+{
 	ncb_t *ncb;
 	int retval;
 

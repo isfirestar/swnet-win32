@@ -215,7 +215,8 @@ int asio_tcp_recv( packet_t * packet )
 	return retval;
 }
 
-int asio_tcp_connect(packet_t *packet){
+int asio_tcp_connect(packet_t *packet)
+{
 	NTSTATUS status;
 	static GUID GUID_CONNECTEX = WSAID_CONNECTEX;
 	LPFN_CONNECTEX WSAConnectEx = NULL;

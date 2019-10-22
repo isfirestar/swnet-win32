@@ -127,7 +127,8 @@ int __stdcall nis_getver( swnet_version_t  *version )
 	return 0;
 }
 
-int __stdcall nis_gethost( const char *name, uint32_t *ipv4 ) {
+int __stdcall nis_gethost( const char *name, uint32_t *ipv4 ) 
+{
 
 	struct hostent *remote;
     struct in_addr addr;
@@ -167,7 +168,8 @@ int __stdcall nis_gethost( const char *name, uint32_t *ipv4 ) {
 	return 0;
 }
 
-char * __stdcall nis_lgethost( char *name, int cb ) {
+char * __stdcall nis_lgethost( char *name, int cb ) 
+{
 	if ( !name || cb <= 0 ) {
 		return NULL;
 	}
@@ -181,7 +183,8 @@ char * __stdcall nis_lgethost( char *name, int cb ) {
 /* manage ECR and it's calling */
 static nis_event_callback_t current_ecr = NULL;
 
-nis_event_callback_t __stdcall nis_checr( const nis_event_callback_t ecr ) {
+nis_event_callback_t __stdcall nis_checr( const nis_event_callback_t ecr ) 
+{
 	if ( !ecr ) {
 		InterlockedExchangePointer( (volatile PVOID *)&current_ecr, NULL );
 		return NULL;
@@ -189,7 +192,8 @@ nis_event_callback_t __stdcall nis_checr( const nis_event_callback_t ecr ) {
 	return InterlockedExchangePointer( ( volatile PVOID * )&current_ecr, ecr );
 }
 
-void nis_call_ecr( const char *fmt, ... ) {
+void nis_call_ecr( const char *fmt, ... ) 
+{
 	nis_event_callback_t ecr = NULL, old;
 	va_list ap;
 	char logstr[128];
@@ -247,7 +251,8 @@ int __stdcall nis_getmask(HTCPLINK lnk, int *mask)
 	return 0;
 }
 
-int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) {
+int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) 
+{
 	ULONG dwRetVal, outBufLen;
 	PIP_ADAPTER_INFO pCurrAddresses, pAddresses;
 	int i;

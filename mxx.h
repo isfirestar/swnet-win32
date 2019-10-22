@@ -1,4 +1,4 @@
-#if !defined MXX_HEAD
+﻿#if !defined MXX_HEAD
 #define MXX_HEAD
 
 #include "nis.h"

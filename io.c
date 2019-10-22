@@ -79,13 +79,15 @@ static DWORD WINAPI __iorun(LPVOID p)
 	return 0L;
 }
 
-static void *__epoll_proc(void *p) {
+static void *__epoll_proc(void *p) 
+{
 	__iorun(p);
 	return NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int __ioinit() {
+int __ioinit() 
+{
 	int i;
 
 	epmgr.divisions = posix__getnprocs();
@@ -116,7 +118,8 @@ int __ioinit() {
 
 posix__atomic_initial_declare_variable(__inited__);
 
-int ioinit() {
+int ioinit() 
+{
 	if (posix__atomic_initial_try(&__inited__)) {
 		if (__ioinit() < 0) {
 			posix__atomic_initial_exception(&__inited__);
@@ -128,7 +131,8 @@ int ioinit() {
 	return __inited__;
 }
 
-int ioatth(void *ncbptr) {
+int ioatth(void *ncbptr)
+{
 	ncb_t *ncb;
 	struct epoll_object *epos;
 	HANDLE bind_iocp;
@@ -153,7 +157,8 @@ int ioatth(void *ncbptr) {
 	return -1;
 }
 
-void ioclose(void *ncbptr) {
+void ioclose(void *ncbptr)
+{
 	ncb_t *ncb;
 
 	ncb = (ncb_t *)ncbptr;
@@ -166,7 +171,8 @@ void ioclose(void *ncbptr) {
 	}
 }
 
-void iouninit() {
+void iouninit() 
+{
 	int i;
 	struct epoll_object *epos;
 
