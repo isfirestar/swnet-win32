@@ -80,8 +80,10 @@ EXPORTS
 	DES__decrypt
 
 	log__init
+	log__init2
 	log__write
 	log__save
+	log__flush
 
 	posix__gettid
 	posix__getpid
