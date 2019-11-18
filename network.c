@@ -110,8 +110,9 @@ int so_asio_count()
 	int io_pre_object;
 
 	iocp_th_cnt = iocp_thcnts();
-	if ( iocp_th_cnt <= 0 ) return -1;
-
+	if ( iocp_th_cnt <= 0 ) {
+		return -1;
+	}
 	if ( iocp_th_cnt < MINIMUM_IRPS_PER_OBJECT ) {
 		io_pre_object = MINIMUM_IRPS_PER_OBJECT;
 	} else if ( iocp_th_cnt > MAXIMUM_IRPS_PER_OBJECT ) {

@@ -43,9 +43,10 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 	};
 	struct {
 		struct list_head		tcp_waitting_list_head_;	// TCP等待发送包链
+		int						cached_item_count_;
 		CRITICAL_SECTION		tcp_lst_lock_;				// TCP的包链锁
-		int						tcp_usable_sender_cache_;	// (这个链上的) 下层可用缓冲区字节数
-		int						tcp_pending_cnt_;			// (这个链上的) 未决IO请求个数
+		//int						tcp_usable_sender_cache_;	// (这个链上的) 下层可用缓冲区字节数
+		//int						tcp_pending_cnt_;			// (这个链上的) 未决IO请求个数
 		tst_t					tcp_tst_;					// TCP(属于这个链的)协议解析模板
 		tst_t					tcp_prtst;
         int						mss;						/* MSS of tcp link */

@@ -717,7 +717,9 @@ int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port)
     }
 
     ncb = objrefr(hld);
-    if (!ncb) return -1;
+	if (!ncb) {
+		return -1;
+	}
 
     do {
         retval = -1;

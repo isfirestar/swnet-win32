@@ -69,7 +69,9 @@ int __stdcall nis_getctx( HLNK lnk, void * user_context, int *user_context_size 
 {
 	ncb_t * ncb;
 
-	if ( !user_context ) return -1;
+	if (!user_context) {
+		return -1;
+	}
 
 	ncb = objrefr( lnk );
 	if ( !ncb ) {
@@ -119,7 +121,9 @@ int __stdcall nis_ctxsize( HLNK lnk )
 
 int __stdcall nis_getver( swnet_version_t  *version )
 {
-	if ( !version ) return -1;
+	if (!version) {
+		return -1;
+	}
 
 	version->major_ = 9;
 	version->minor_ = 7;
@@ -133,7 +137,9 @@ int __stdcall nis_gethost( const char *name, uint32_t *ipv4 )
 	struct hostent *remote;
     struct in_addr addr;
 
-	if ( !name || !ipv4 ) return -1;
+	if (!name || !ipv4) {
+		return -1;
+	}
 
 	so_init( kProto_Unknown, -1 );
 

@@ -118,10 +118,14 @@ int asio_tcp_accept( packet_t * packet )
 	uint32_t bytes_return = 0;
 	int retval;
 
-	if ( !packet ) return -1;
+	if (!packet) {
+		return -1;
+	}
 
 	ncb_listen = objrefr(packet->link);
-	if ( !ncb_listen ) return -1;
+	if (!ncb_listen) {
+		return -1;
+	}
 
 	status = (NTSTATUS)WSAIoctl(ncb_listen->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_ACCEPTEX, sizeof(GUID_ACCEPTEX),
 		&WSAAcceptEx, sizeof(WSAAcceptEx), &bytes_return, NULL, NULL);
@@ -191,7 +195,9 @@ int asio_tcp_recv( packet_t * packet )
 	int retval;
 	ncb_t *ncb;
 
-	if ( !packet ) return -1;
+	if (!packet) {
+		return -1;
+	}
 
 	ncb = objrefr(packet->link);
 	if (!ncb) {

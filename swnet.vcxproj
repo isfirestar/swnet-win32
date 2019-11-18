@@ -115,7 +115,7 @@
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(Platform).$(Configuration).lib</ImportLibrary>
+      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
     </Link>
@@ -149,7 +149,7 @@
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(Platform).$(Configuration).lib</ImportLibrary>
+      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
     </Link>
@@ -185,7 +185,7 @@
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
-      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(Platform).$(Configuration).lib</ImportLibrary>
+      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
       <AdditionalOptions>
@@ -223,7 +223,7 @@
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
       <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
-      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(Platform).$(Configuration).lib</ImportLibrary>
+      <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
     </Link>
