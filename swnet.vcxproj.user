@@ -12,10 +12,9 @@
     <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommand>D:\work\git\my\master\swnet-win32\bin\Debug\TestMt.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>
-    </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>D:\work\git\my\master\swnet-win32\bin\Debug</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>F:\LocalTest\RobotMotion 2.2\motion_template.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>-sl canbus_driver_sim.dll --startup-simodo 0:0:0</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>F:\LocalTest\RobotMotion 2.2\</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <RemoteDebuggerCommand>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommand>
     <RemoteDebuggerCommandArguments>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommandArguments>
@@ -24,12 +23,9 @@
     <RemoteDebuggerConnection>RemoteWithoutAuthentication</RemoteDebuggerConnection>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommand>
-    </LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>
-    </LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>
-    </LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>D:\git\my\9.7\swnet-win32\bin\Debug\motion_net_test.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>192.168.0.29</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\git\my\9.7\swnet-win32\bin\Debug\</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

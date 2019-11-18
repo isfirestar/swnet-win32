@@ -25,8 +25,8 @@ typedef struct _TCP_INIT_CONTEXT {
 }tcp_cinit_t;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define TCP_MAXIMUM_SENDER_CACHED_CNT				( 5120 ) // 以每个包64KB计, 最多可以接受 327MB 的发送堆积
-static long __tcp_global_sender_cached_cnt = 0; // TCP 全局缓存的发送包个数(未发出的链表长度)
+#define TCP_MAXIMUM_SENDER_CACHED_CNT				(2000)		//( 5120 ) // 以每个包64KB计, 最多可以接受 327MB 的发送堆积
+#define TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK		( 500 )		// 以每个包64KB计, 最多可以接受 32MB/Link 的发送堆积
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef enum _TCPSTATE {
@@ -101,7 +101,9 @@ void tcp_try_write( ncb_t * ncb )
 {
 	packet_t *next_packet;
 
-	if ( !ncb ) return;
+	if (!ncb) {
+		return;
+	}
 
 	EnterCriticalSection( &ncb->tcp_lst_lock_ );
 
@@ -111,24 +113,7 @@ void tcp_try_write( ncb_t * ncb )
 	}
 
 	next_packet = list_first_entry( &ncb->tcp_waitting_list_head_, packet_t, pkt_lst_entry_ );
-
-	//
-	// 规则：(这里使用反向判定)
-	// 1. 当前没有任何未决请求在下级缓冲区, 无条件发送下一个缓冲包(这条规则可以妥善处理大包发出)
-	// 2. 当前链的可用缓冲区大于下一个包的长度， 允许继续向操作系统投递包
-	// 
-	if ( ncb->tcp_pending_cnt_ > 0 ) {
-		if ( next_packet->size_for_req_ > ncb->tcp_usable_sender_cache_ ) {
-			LeaveCriticalSection( &ncb->tcp_lst_lock_ );
-			return;
-		}
-	}
-
 	list_del_init( &next_packet->pkt_lst_entry_ );
-
-	/*	累加未决计数和未决长度	*/
-	ncb->tcp_pending_cnt_++;
-	ncb->tcp_usable_sender_cache_ -= next_packet->size_for_req_;
 
 	/*
 	发生非 PENDING 错误，不会出发 IOCP 例程
@@ -331,6 +316,11 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 			break;
 		}
 
+		// 描述每个链接上的TCP下级缓冲区大小
+		InitializeCriticalSection(&ncb->tcp_lst_lock_);
+		INIT_LIST_HEAD(&ncb->tcp_waitting_list_head_);
+		ncb->cached_item_count_ = 0;
+
 		// 如果是远程连接得到的ncb_t, 操作到此完成
 		if ( init_ctx->is_remote_ ) {
 			retval = 0;
@@ -347,9 +337,6 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		ncb->l_addr_.sin_family = PF_INET;
 		ncb->l_addr_.sin_addr.S_un.S_addr = init_ctx->ip_;
 		ncb->l_addr_.sin_port = init_ctx->port_;
-
-		// 描述每个链接上的TCP下级缓冲区大小
-		ncb->tcp_usable_sender_cache_ = TCP_BUFFER_SIZE;
 
 		// 将对象绑定到异步IO的完成端口
 		if (ioatth(ncb) < 0) {
@@ -399,20 +386,16 @@ void tcp_unload( objhld_t h, void * user_buffer )
 
 	// 如果有未完成的大包， 则将大包内存释放
 	ncb_unmark_lb( ncb );
-
+	// 缓存个数预置为0
+	InterlockedExchange((volatile LONG *)&ncb->cached_item_count_, 0);
 	// 取消所有等待发送的包链
 	EnterCriticalSection( &ncb->tcp_lst_lock_ );
-	ncb->tcp_pending_cnt_ = 0;
-	ncb->tcp_usable_sender_cache_ = 0;
 	while (!list_empty(&ncb->tcp_waitting_list_head_)) {
 		packet = list_first_entry( &ncb->tcp_waitting_list_head_, packet_t, pkt_lst_entry_ );
 		list_del( &packet->pkt_lst_entry_ );
 		if ( packet ) {
 			freepkt( packet );
 		}
-
-		// 递减全局的发送缓冲个数
-		InterlockedDecrement( &__tcp_global_sender_cached_cnt ); 
 	}
 	LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
@@ -615,19 +598,9 @@ void tcp_dispatch_io_send( packet_t *packet )
 		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
-
-	//
-	// 无条件递减 PENDING 计数
-	// 在递减计数后满足安全 PENDING 条件, 则尝试继续处理发送队列中的包
-	// 针对计数的操作都使用原子进行
-	//
-	EnterCriticalSection( &ncb->tcp_lst_lock_ );
-	ncb->tcp_usable_sender_cache_ += packet->size_for_req_;
-	ncb->tcp_pending_cnt_--;
-	LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 	
-	// 递减累积的缓冲区个数(全局/链无关的)
-	InterlockedDecrement( &__tcp_global_sender_cached_cnt );
+	// 递减累积的缓冲区个数
+	InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
 
 	// 如果尝试发送过程中发生系统调用失败， 则包缓冲区将被销毁， 同时链接将被关闭
 	// 继续尝试发下一个包
@@ -765,10 +738,11 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 {
 	ncb_t * ncb;
 
-	if ( !packet ) return;
+	if (!packet) {
+		return;
+	}
 
 	if (tcprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
 		return;
 	}
 
@@ -776,22 +750,13 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	// 发送异常需要递减未决请求量
 	if ( kSend == packet->type_ ) {
-		EnterCriticalSection( &ncb->tcp_lst_lock_ );
-		ncb->tcp_pending_cnt_--;
-		ncb->tcp_usable_sender_cache_ += packet->size_for_req_;
-		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
-
-		// 递减全局的发送缓冲个数
-		InterlockedDecrement( &__tcp_global_sender_cached_cnt );
-
-		// 尝试下一个发送操作
+		InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
 		tcp_try_write( ncb );
 	} else {
 		tcp_shutdwon_by_packet( packet );
 	}
 
 	objdefr( ncb->link );
-	
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1123,20 +1088,18 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 		return -1;
 	}
 
-	// 全局对延迟发送的数据队列长度进行保护
-	if ( InterlockedIncrement( &__tcp_global_sender_cached_cnt ) >= TCP_MAXIMUM_SENDER_CACHED_CNT ) {
-		InterlockedDecrement( &__tcp_global_sender_cached_cnt );
-		return -1;
-	}
-
 	ncb = NULL;
 	retval = -1;
 	buffer = NULL;
 	packet = NULL;
 
+	if (tcprefr(lnk, &ncb) < 0) {
+		return -ENOENT;
+	}
+
 	do {
-		retval = tcprefr(lnk, &ncb);
-		if (retval < 0) {
+		if (InterlockedIncrement((volatile LONG *)&ncb->cached_item_count_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
+			nis_call_ecr("[nshost.tcp.tcp_write] pre-sent cache overflow.");
 			break;
 		}
 
@@ -1184,25 +1147,22 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 
 		// 将包加入待发送队列中
 		EnterCriticalSection( &ncb->tcp_lst_lock_ );
-		list_add_tail( &packet->pkt_lst_entry_, &ncb->tcp_waitting_list_head_ );
+		list_add_tail(&packet->pkt_lst_entry_, &ncb->tcp_waitting_list_head_);
 		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
 		// 自由判断是否投递异步请求的合适时机
-		tcp_try_write( ncb );
-
+		tcp_try_write(ncb);
 		retval = 0;
 	} while ( FALSE );
 
 	if ( retval < 0 ) {
-		InterlockedDecrement( &__tcp_global_sender_cached_cnt ); // 抬高计数后未能正确插入缓冲队列
+		InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
 		if ( buffer ) {
 			free( buffer );
 		}
 	}
 
-	if ( ncb ) {
-		objdefr( ncb->link );
-	}
+	objdefr( ncb->link );
 	return retval;
 }
 

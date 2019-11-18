@@ -50,8 +50,6 @@ void ncb_init( ncb_t * ncb, enum proto_type_t proto_type )
 		memset( ncb, 0, sizeof( ncb_t ) );
 		ncb->sockfd = INVALID_SOCKET;
 		ncb->proto_type_ = proto_type;
-		InitializeCriticalSection( &ncb->tcp_lst_lock_ );
-		INIT_LIST_HEAD( &ncb->tcp_waitting_list_head_ );
 	}
 }
 
