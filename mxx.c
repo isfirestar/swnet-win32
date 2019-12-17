@@ -5,7 +5,6 @@
 #include "posix_string.h"
 
 #include <iphlpapi.h>
-// Link with Iphlpapi.lib
 #pragma comment(lib, "IPHLPAPI.lib")
 
 extern int tcp_settst_r(HTCPLINK link, tst_t *tst);
@@ -20,10 +19,6 @@ int tcp_gettst_r(HTCPLINK link, tst_t *tst, tst_t *previous);
 	The default destination can be changed by simply calling WSAConnect again, even if the socket is already connected.
 	Any datagrams queued for receipt are discarded if name is different from the previous WSAConnect.
 	--*/
-
-//---------------------------------------------------------------------------------------------------------------------------------------------------------
-// 其他MXX相关 部分
-//---------------------------------------------------------------------------------------------------------------------------------------------------------
 int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 {
 	ncb_t *ncb;
@@ -39,16 +34,20 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 	do {
 		retval = 0;
 
-		// 指定空指针可以清空现有的上下文
+		/* clear context when using NULL pointer paramter */
 		if ( !ncb_ctx || 0 == ncb_ctx_size ) {
-			if ( ncb->ncb_ctx_ ) free( ncb->ncb_ctx_ );
+			if (ncb->ncb_ctx_) {
+				free(ncb->ncb_ctx_);
+			}
 			ncb->ncb_ctx_size_ = 0;
 			break;
 		}
 
-		// 如果要求设置的上下文和当前上下文大小不一致， 则覆盖当前上下文
+		/* convert current context when acquire length not equal to present */
 		if ( ncb_ctx_size != ncb->ncb_ctx_size_ ) {
-			if ( ncb->ncb_ctx_ ) free( ncb->ncb_ctx_ );
+			if (ncb->ncb_ctx_) {
+				free(ncb->ncb_ctx_);
+			}
 			ncb->ncb_ctx_size_ = ncb_ctx_size;
 			ctx = ( char * ) malloc( ncb_ctx_size );
 			if ( !ctx ) {
@@ -160,7 +159,7 @@ int __stdcall nis_gethost( const char *name, uint32_t *ipv4 )
 		return -1;
     }
 
-	/* 目前仅支持 IPv4 */
+	/* IPv4 only */
 	if ( AF_INET != remote->h_addrtype ) {
 		return -1;
 	}

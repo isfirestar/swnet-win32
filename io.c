@@ -5,12 +5,10 @@
 #include "ncb.h"
 #include "posix_atomic.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define IOCP_INVALID_SIZE_TRANSFER			(0xFFFFFFFF)
 #define IOCP_INVALID_COMPLETION_KEY			((ULONG_PTR)(~0))
 #define IOCP_INVALID_OVERLAPPED_PTR			((OVERLAPPED *)0)
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct epoll_object {
 	HANDLE epfd;
 	boolean_t actived;
@@ -24,10 +22,8 @@ struct epoll_object_manager {
 	int divisions;		/* count of epoll thread */
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static struct epoll_object_manager epmgr;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int iocp_complete_routine()
 {
 	return 0;
@@ -61,16 +57,15 @@ static DWORD WINAPI __iorun(LPVOID p)
 				If *lpOverlapped is NULL, the function did not dequeue a completion packet from the completion port
 				In this case,
 				the function does not store information in the variables pointed to by the lpNumberOfBytes and lpCompletionKey parameters, and their values are indeterminate.
+				one time IO error does not represent an thread error, the IO thread not need to quit
 				*/
-				continue; // 本次IO失败， 不代表线程应该错误, 不需要退出线程
+				continue;
 			}
 		} else {
-			// 线程主动退出
+			/* ask IO thread exit initiative */
 			if ( IOCP_INVALID_SIZE_TRANSFER == bytes_transfered ) {
 				break;
 			}
-
-			// 投递处理IO事件
 			so_dispatch_io_event( ovlp, bytes_transfered );
 		}
 	}
@@ -85,7 +80,6 @@ static void *__epoll_proc(void *p)
 	return NULL;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int __ioinit() 
 {
 	int i;
