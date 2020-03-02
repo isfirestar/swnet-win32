@@ -1,4 +1,4 @@
-#if !defined SWNET_OS_HEAD_20170112
+﻿#if !defined SWNET_OS_HEAD_20170112
 #define SWNET_OS_HEAD_20170112
 
 #if !defined WIN32_LEAN_AND_MEAN

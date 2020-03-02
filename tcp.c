@@ -1,4 +1,4 @@
-#include "network.h"
+﻿#include "network.h"
 #include "ncb.h"
 #include "packet.h"
 #include "io.h"
@@ -25,8 +25,8 @@ typedef struct _TCP_INIT_CONTEXT {
 }tcp_cinit_t;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define TCP_MAXIMUM_SENDER_CACHED_CNT				(2000)		//( 5120 ) // ��ÿ����64KB��, �����Խ��� 327MB �ķ��Ͷѻ�
-#define TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK		( 500 )		// ��ÿ����64KB��, �����Խ��� 32MB/Link �ķ��Ͷѻ�
+#define TCP_MAXIMUM_SENDER_CACHED_CNT				(2000)		//( 5120 ) // 以每个包64KB计, 最多可以接受 327MB 的发送堆积
+#define TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK		( 500 )		// 以每个包64KB计, 最多可以接受 32MB/Link 的发送堆积
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef enum _TCPSTATE {
@@ -116,9 +116,9 @@ void tcp_try_write( ncb_t * ncb )
 	list_del_init( &next_packet->pkt_lst_entry_ );
 
 	/*
-	������ PENDING ���󣬲������ IOCP ����
-	��ʱ�϶�Ϊһ���޷������Ĵ��� ֱ��ִ�жϿ�����
-	ͬʱ, ������Ҫ������ע���������� ����Ҫ�ͷű����ڴ�����췢�ͻ�����
+	发生非 PENDING 错误，不会出发 IOCP 例程
+	此时认定为一种无法处理的错误， 直接执行断开链接
+	同时, 不再需要继续关注后续处理， 不需要释放本包内存和拉伸发送缓冲区
 	*/
 	if ( asio_tcp_send( next_packet ) < 0 ) {
 		tcp_shutdwon_by_packet( next_packet );
@@ -141,21 +141,21 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 	if ( 0 == packet->size_for_translation_ ) return -1;
 	if ( !ncb->tcp_tst_.parser_ ) return -1;
 
-	// ��ǰ���ó��ȶ���Ϊ�ѷ������ȼ��ϱ��ν�������
+	// 当前可用长度定义为已分析长度加上本次交换长度
 	current_usefule_size = packet->size_for_translation_;
 
-	// �Ӵ���������У�ȡ�ô����Ҫ�ĳ���
+	// 从大包缓冲区中，取得大包需要的长度
 	if ( ncb->tcp_tst_.parser_( ncb->lb_data_, ncb->tcp_tst_.cb_, &user_size ) < 0 ) {
 		return -1;
 	}
 
-	// ����������󳤶� = �û����ݳ��� + �ײ�Э�鳤��
+	// 大包修正请求长度 = 用户数据长度 + 底层协议长度
 	logic_revise_acquire_size = user_size + ncb->tcp_tst_.cb_;
 
-	// ����������� = ��Ҫ���������� - �Ѿ�����������ƫ��
+	// 大包填满长度 = 需要的修正长度 - 已经拷贝的数据偏移
 	lb_acquire_size = logic_revise_acquire_size - ncb->lb_cpy_offset_;
 
-	// ��ǰ�������ݳ��ȣ� ����������������, �������ݿ����� �������ƫ�ƣ� ������������
+	// 当前可用数据长度， 不足以填充整个大包, 进行数据拷贝， 调整大包偏移， 继续接收数据
 	if ( current_usefule_size < lb_acquire_size ) {
 		assert(ncb->lb_cpy_offset_ + current_usefule_size <= ncb->lb_length_);
 		memcpy( ncb->lb_data_ + ncb->lb_cpy_offset_, ( char * ) packet->ori_buffer_, current_usefule_size );
@@ -163,7 +163,7 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 		return 0;
 	}
 
-	// ����������� �򽫴����������ص����û�����
+	// 足以填充大包， 则将大包填充满并回调到用户例程
 	assert(ncb->lb_cpy_offset_ + lb_acquire_size <= ncb->lb_length_);
 	memcpy( ncb->lb_data_ + ncb->lb_cpy_offset_, ( char * ) packet->ori_buffer_, lb_acquire_size );
 	c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->link;
@@ -172,10 +172,10 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 	c_data.e.Packet.Data = ( const char * ) ( ( char * ) ncb->lb_data_ + ncb->tcp_tst_.cb_ );
 	ncb_callback( ncb, &c_event, &c_data );
 
-	// һ�δ���Ľ����Ѿ���ɣ� ����ncb_t�еĴ���ֶ�
+	// 一次大包的解析已经完成， 销毁ncb_t中的大包字段
 	ncb_unmark_lb( ncb );
 
-	// ������Ǹպ���������� ��:��Ч���������࣬ ��Ӧ�ý���Ч����ʣ�೤�ȸ�֪�����̣߳� ���ʽ�����һ�ֵĽ������
+	// 如果不是刚好填满大包， 即:有效数据有冗余， 则应该将有效数据剩余长度告知调用线程， 以资进行下一轮的解包操作
 	if ( current_usefule_size != lb_acquire_size ) {
 		memmove( packet->ori_buffer_, ( char * ) packet->ori_buffer_ + lb_acquire_size, current_usefule_size - lb_acquire_size );
 		packet->size_for_translation_ -= lb_acquire_size;
@@ -202,11 +202,11 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		return -1;
 	}
 
-	// ��ǰ���ó��ȶ���Ϊ�ѷ������ȼ��ϱ��ν�������
+	// 当前可用长度定义为已分析长度加上本次交换长度
 	current_usefule_size = packet->analyzed_offset_ + packet->size_for_translation_;
 	current_parse_offset = 0;
 
-	// û��ָ����ͷģ�壬 ֱ�ӻص�����TCP��
+	// 没有指定包头模板， 直接回调整个TCP包
 	if ( 0 == ncb->tcp_tst_.cb_ ) {
 		c_event.Ln.Tcp.Link = ( HTCPLINK ) ncb->link;
 		c_event.Event = EVT_RECEIVEDATA;
@@ -219,23 +219,23 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 
 	while ( TRUE ) {
 
-		// �����������ȣ� ����������ͷ�� �������м������ղ���
+		// 如果整体包长度， 不足以填充包头， 则必须进行继续接收操作
 		if ( current_usefule_size < ncb->tcp_tst_.cb_ ) break;
 
-		// �ײ�Э�齻����Э��ģ�崦���� ����ʧ�����������޷�����
+		// 底层协议交互给协议模板处理， 处理失败则解包操作无法继续
 		if ( ncb->tcp_tst_.parser_( ( char * ) packet->ori_buffer_ + current_parse_offset, ncb->tcp_tst_.cb_, &user_size ) < 0 ) {
 			return -1;
 		}
 
-		/* ����û����ݳ��ȳ���������̳��ȣ���ֱ�ӱ���Ϊ����, �п����Ƕ��⹥�� */
+		/* 如果用户数据长度超出最大容忍长度，则直接报告为错误, 有可能是恶意攻击 */
 		if (user_size > TCP_MAXIMUM_PACKET_SIZE || user_size < 0) {
 			return -1;
 		}
 
-		// �ܰ����� = �û����ݳ��� + �ײ�Э�鳤��
+		// 总包长度 = 用户数据长度 + 底层协议长度
 		total_packet_length = user_size + ncb->tcp_tst_.cb_;
 		
-		// ����������ں��������� ֱ��ȫ��������Ϊ����ȴ�״̬�� ��ԭʼ��������ʼͶ��IRP
+		// 大包，不存在后续解析， 直接全拷贝后标记为大包等待状态， 从原始缓冲区开始投递IRP
 		if ( total_packet_length > TCP_RECV_BUFFER_SIZE ) {
 			if ( ncb_mark_lb( ncb, total_packet_length, current_usefule_size, ( char * ) packet->ori_buffer_ + current_parse_offset ) < 0 ) {
 				return -1;
@@ -244,13 +244,13 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 			return 0;
 		}
 
-		// ��ǰ�߼����������󳤶� = �ײ�Э���м��ص��û����ݳ��� + ��ͷ����
+		// 当前逻辑包修正请求长度 = 底层协议中记载的用户数据长度 + 包头长度
 		logic_revise_acquire_size = total_packet_length;
 
-		// ��ǰ���ó��Ȳ���������߼������ȣ� ��Ҫ������������
+		// 当前可用长度不足以填充逻辑包长度， 需要继续接收数据
 		if ( current_usefule_size < logic_revise_acquire_size ) break;
 
-		// �ص����û�����, ʹ����ʵ��ַ�ۼӽ���ƫ�ƣ� ֱ�Ӹ���ص����̵Ľṹָ�룬 ��Ϊconst���ƣ� �����̲߳�Ӧ�ÿ����޸ĸô���ֵ
+		// 回调到用户例程, 使用其实地址累加解析偏移， 直接赋予回调例程的结构指针， 因为const限制， 调用线程不应该刻意修改该串的值
 		c_event.Ln.Tcp.Link = (HTCPLINK)ncb->link;
 		c_event.Event = EVT_RECEIVEDATA;
 		if (ncb->optmask & LINKATTR_TCP_FULLY_RECEIVE) {
@@ -263,14 +263,14 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 		
 		ncb_callback( ncb, &c_event, &c_data );
 
-		// ������ǰ��������
+		// 调整当前解析长度
 		current_usefule_size -= logic_revise_acquire_size;
 		current_parse_offset += logic_revise_acquire_size;
 	}
 
 	packet->analyzed_offset_ = current_usefule_size;
 
-	// �в��������޷��������� �򿽱���������ԭʼ��㣬 ���Բ��೤����Ϊ��һ���հ������ƫ��
+	// 有残余数据无法完成组包， 则拷贝到缓冲区原始起点， 并以残余长度作为下一个收包请求的偏移
 	if ( ( 0 != current_usefule_size ) && ( 0 != current_parse_offset ) ) {
 		memmove( packet->ori_buffer_, ( void * ) ( ( char * ) packet->ori_buffer_ + current_parse_offset ), current_usefule_size );
 	}
@@ -288,7 +288,7 @@ int tcp_update_opts(ncb_t *ncb) {
     ncb_set_linger(ncb, 1, 0);
     ncb_set_keepalive(ncb, 1);
      
-    tcp_set_nodelay(ncb, 1);   /* Ϊ��֤С��Ч�ʣ� ���� Nginx �㷨 */
+    tcp_set_nodelay(ncb, 1);   /* 为保证小包效率， 禁用 Nginx 算法 */
     
     return 0;
 }
@@ -316,29 +316,29 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 			break;
 		}
 
-		// ����ÿ�������ϵ�TCP�¼���������С
+		// 描述每个链接上的TCP下级缓冲区大小
 		InitializeCriticalSection(&ncb->tcp_lst_lock_);
 		INIT_LIST_HEAD(&ncb->tcp_waitting_list_head_);
 		ncb->cached_item_count_ = 0;
 
-		// �����Զ�����ӵõ���ncb_t, �����������
+		// 如果是远程连接得到的ncb_t, 操作到此完成
 		if ( init_ctx->is_remote_ ) {
 			retval = 0;
 			break;
 		}
 
-		// setsockopt �����׽��ֲ���
+		// setsockopt 设置套接字参数
 		if (tcp_update_opts(ncb) < 0) {
 			break;
 		}
 
-		// �����׶Σ� �����Ƿ��������������˿ڰ󶨣� �����м��뱾�ص�ַ��Ϣ
-		// ��ִ��accept, connect�� ���������˿ڰ󶨣� �����ȡ��ʵ����Ч�ĵ�ַ��Ϣ
+		// 创建阶段， 无论是否随机网卡，随机端口绑定， 都先行计入本地地址信息
+		// 在执行accept, connect后， 如果是随机端口绑定， 则可以取到实际生效的地址信息
 		ncb->l_addr_.sin_family = PF_INET;
 		ncb->l_addr_.sin_addr.S_un.S_addr = init_ctx->ip_;
 		ncb->l_addr_.sin_port = init_ctx->port_;
 
-		// ������󶨵��첽IO����ɶ˿�
+		// 将对象绑定到异步IO的完成端口
 		if (ioatth(ncb) < 0) {
 			break;
 		}
@@ -365,7 +365,7 @@ void tcp_unload(objhld_t h, void * user_buffer) {
 
 	if (!user_buffer) return;
 
-	// �����ر�ǰ�¼�
+	// 处理关闭前事件
 	c_event.Ln.Tcp.Link = (HTCPLINK)h;
 	c_event.Event = EVT_PRE_CLOSE;
 	c_data.e.LinkOption.OptionLink = (HTCPLINK)h;
@@ -373,14 +373,14 @@ void tcp_unload(objhld_t h, void * user_buffer) {
 		ncb->tcp_callback_((const void *)&c_event, (const void *)&c_data);
 	}
 
-	// �ر��ڲ��׽���
+	// 关闭内部套接字
 	ioclose(ncb);
 
-	// �����δ��ɵĴ���� �򽫴���ڴ��ͷ�
+	// 如果有未完成的大包， 则将大包内存释放
 	ncb_unmark_lb(ncb);
-	// �������Ԥ��Ϊ0
+	// 缓存个数预置为0
 	InterlockedExchange((volatile LONG *)&ncb->cached_item_count_, 0);
-	// ȡ�����еȴ����͵İ���
+	// 取消所有等待发送的包链
 	EnterCriticalSection(&ncb->tcp_lst_lock_);
 	while (!list_empty(&ncb->tcp_waitting_list_head_)) {
 		packet = list_first_entry(&ncb->tcp_waitting_list_head_, packet_t, pkt_lst_entry_);
@@ -391,17 +391,17 @@ void tcp_unload(objhld_t h, void * user_buffer) {
 	}
 	LeaveCriticalSection(&ncb->tcp_lst_lock_);
 
-	// �رհ�������
+	// 关闭包链的锁
 	DeleteCriticalSection(&ncb->tcp_lst_lock_);
 
-	// �ͷ��û�����������ָ��
+	// 释放用户上下文数据指针
 	if (ncb->ncb_ctx_ && 0 != ncb->ncb_ctx_size_) {
 		free(ncb->ncb_ctx_);
 	}
 
 	nis_call_ecr("[nshost.tcp.tcp_unload] object:%I64d finalization released", ncb->link);
 
-	// �����رպ��¼�
+	// 处理关闭后事件
 	c_event.Event = EVT_CLOSED;
 	c_data.e.LinkOption.OptionLink = (HTCPLINK)h;
 	if (ncb->tcp_callback_) {
@@ -456,14 +456,14 @@ int tcp_syn( ncb_t * ncb_listen )
 			break;
 		}
 
-		// ���Ǽ������õ�ǰ���հ����ڴ�
+		// 还是继续沿用当前接收包的内存
 		syn_packet->accepted_link = h;
 
-		// �������ͽ�����������
+		// 继续抛送接收链接请求
 		if ( asio_tcp_accept( syn_packet ) >= 0 ) return 0;
 
-		// Ͷ�ݽ�������������Ҫ��֤�ɹ����
-		// ���ʧ�ܣ� ��رձ���ʧ�ܵĶԶ����ӣ� ����Ͷ�ݽ�������
+		// 投递接受链接请求需要保证成功完成
+		// 如果失败， 则关闭本次失败的对端链接， 继续投递接受请求
 		objclos( h );
 
 	} while ( i++ < TCP_SYN_REQ_TIMES );
@@ -504,7 +504,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		WSAGetAcceptExSockAddrs( packet->irp_, 0, sizeof( struct sockaddr_in ) + 16, sizeof( struct sockaddr_in ) + 16,
 			&l_addr, &l_len, &r_addr, &r_len );
 
-		// ��ȡ�õ��������Ը���accept������ncb_t
+		// 将取得的链接属性赋予accept上来的ncb_t
 		pr = ( struct sockaddr_in * )r_addr;
 		ncb_accepted->r_addr_.sin_family = pr->sin_family;
 		ncb_accepted->r_addr_.sin_port = pr->sin_port;
@@ -529,12 +529,12 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 }
 
 /*++
-	�������Ӳ����������²��֣�
+	接收连接操作包含如下部分：
 
-	1. ���ջ�õ�Զ���׽���Ӧ���������������
-	2. ���ؼ����׽���Ӧ��������������Զ������
-	3. ���ջ�õ�Զ���׽���Ӧ�ø�ֵ���ؼ����׽��ֵ�����
-	4. ���ջ��������׽��ֹ����� ������Զ���׽���������Ψһ������Ψһ���ջ�������Ψһ�ӿڵ�
+	1. 接收获得的远端套接字应该允许其接收数据
+	2. 本地监听套接字应该允许继续接收远端连接
+	3. 接收获得的远端套接字应该赋值本地监听套接字的属性
+	4. 接收缓冲区与套接字关联， 这里是远端套接字生成其唯一窗口中唯一接收缓冲区的唯一接口点
 	--*/
 static
 void tcp_dispatch_io_syn( packet_t * packet )
@@ -557,7 +557,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 		return;
 	}
 
-	// ����������������Զ�˶�������óɹ��� ��Զ�˶���ʹ����ʧ�ܣ� Ҳ��Ӱ���¸�accept�����Ͷ��
+	// 后续操作不依赖于远端对象的引用成功， 即远端对象即使引用失败， 也不影响下个accept请求的投递
 	if (tcprefr(packet->accepted_link, &ncb_accepted) >= 0) {
 		retval = tcp_syn_copy( ncb_listen, ncb_accepted, packet );
 		if ( retval >= 0 ) {
@@ -567,8 +567,8 @@ void tcp_dispatch_io_syn( packet_t * packet )
 			}
 		}
 
-		// �˴��������⴦���� ��ʹû�гɹ�Ͷ�ݽ������� Ҳ��Ӧ��Ӱ��Ͷ����һ��ACCEPT����
-		// �������RECV�����޷���ȷͶ�ݣ� ���Թرյ�ǰACCEPT����������
+		// 此处增加特殊处理， 即使没有成功投递接收请求， 也不应该影响投递下一个ACCEPT请求
+		// 但是如果RECV请求无法正确投递， 可以关闭当前ACCEPT上来的链接
 		if ( retval < 0 ) {
 			objclos( ncb_accepted->link );
 		}
@@ -592,7 +592,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 
 	if ( !packet ) return;
 
-	// �����ֽ���Ϊ0������� ֻ����TCP ACCEPT��ɣ� ���������Ϊ���������� ���ر�����
+	// 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接
 	if ( 0 == packet->size_for_translation_ ) {
 		tcp_shutdwon_by_packet( packet );
 		return;
@@ -603,16 +603,16 @@ void tcp_dispatch_io_send( packet_t *packet )
 		return;
 	}
 	
-	// �ݼ��ۻ��Ļ���������
+	// 递减累积的缓冲区个数
 	n = InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
 	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] link:%I64d, remote:0x%08X, raise sender cache to:%d", packet->link,ncb->r_addr_.sin_addr.S_un.S_addr, n);
-	// ������Է��͹����з���ϵͳ����ʧ�ܣ� ����������������٣� ͬʱ���ӽ����ر�
-	// �������Է���һ����
+	// 如果尝试发送过程中发生系统调用失败， 则包缓冲区将被销毁， 同时链接将被关闭
+	// 继续尝试发下一个包
 	tcp_try_write( ncb );
 
 	h = packet->link;
 
-	// �ͷű���
+	// 释放本包
 	freepkt( packet );
 	objdefr( h );
 }
@@ -625,7 +625,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	if ( !packet )  return;
 
-	// �����ֽ���Ϊ0������� ֻ����TCP ACCEPT��ɣ� ���������Ϊ���������� ���ر�����
+	// 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接
 	if ( 0 == packet->size_for_translation_ ) {
 		tcp_shutdwon_by_packet( packet );
 		return;
@@ -638,10 +638,10 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	do {
 		// 
-		// �Ѿ������Ϊ����� ��Ӧ�ý��д���Ľ����ʹ洢
-		// ����ֵС����: �������ʧ��, �����˳�
-		// ����ֵ������: �����������Ա��������, ��պ���������δ�������κ����ݲ���
-		// ����ֵ������: �����ɽ�����ʣ������ݳ���(����Ҫ��������һ����)
+		// 已经被标记为大包， 则应该进行大包的解析和存储
+		// 返回值小于零: 大包解析失败, 错误退出
+		// 返回值等于零: 数据量不足以本次填充大包, 或刚好填充满本次大包后无任何数据残留
+		// 返回值大于零: 大包完成解析后剩余的数据长度(还需要继续解下一个包)
 		// 
 		if ( ncb_lb_marked( ncb ) ) {
 			retval = tcp_lb_assemble( ncb, packet );
@@ -650,13 +650,13 @@ void tcp_dispatch_io_recv( packet_t * packet )
 			}
 		}
 
-		// ���� TCP ��Ϊ����Э��淶���߼���
+		// 解析 TCP 包为符合协议规范的逻辑包
 		retval = tcp_prase_logic_packet( ncb, packet );
 		if ( retval < 0 ) {
 			break;
 		}
 
-		// ���ν����ɣ� ����һ������ȷ���´�Ͷ�������ƫ���ڻ�����ͷ���� ������Ҫ����
+		// 单次解包完成， 并不一定可以确认下次投递请求的偏移在缓冲区头部， 所以需要调整
 		packet->irp_ = ( void * ) ( ( char * ) packet->ori_buffer_ + packet->analyzed_offset_ );
 		packet->size_for_req_ = TCP_RECV_BUFFER_SIZE - packet->analyzed_offset_;
 
@@ -690,17 +690,17 @@ void tcp_dispatch_io_connected(packet_t * packet){
 	packet_rcv = NULL;
 
 	do {
-		// ������ز�ȡ�����ַ�ṹ��˿ڣ� ����Ҫȡ��Ψһ��Ч�ĵ�ַ�ṹ�Ͷ˿�
+		// 如果本地采取随机地址结构或端口， 则需要取得唯一生效的地址结构和端口
 		if (0 == ncb->l_addr_.sin_port || 0 == ncb->l_addr_.sin_addr.S_un.S_addr) {
 			struct sockaddr_in name;
 			int name_length = sizeof(name);
 			if (getsockname(ncb->sockfd, (struct sockaddr *)&name, &name_length) >= 0) {
 				ncb->l_addr_.sin_port = name.sin_port;
-				ncb->l_addr_.sin_addr.S_un.S_addr = ntohl(name.sin_addr.S_un.S_addr);/*Ϊ�˱��ּ����ԣ� ����ת����ַΪ���*/
+				ncb->l_addr_.sin_addr.S_un.S_addr = ntohl(name.sin_addr.S_un.S_addr);/*为了保持兼容性， 这里转换地址为大端*/
 			}
 		}
 
-		// �첽������ɺ󣬸������Ӷ��������������
+		// 异步连接完成后，更新连接对象的上下文属性
 		if (setsockopt(ncb->sockfd, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0) >= 0){
 			int namelen = sizeof(ncb->r_addr_);
 			getpeername(ncb->sockfd, (struct sockaddr *)&ncb->r_addr_, &namelen);
@@ -711,7 +711,7 @@ void tcp_dispatch_io_connected(packet_t * packet){
 		c_data.e.LinkOption.OptionLink = ncb->link;
 		ncb_callback(ncb, &c_event, &c_data);
 
-		// �ɹ����ӶԶˣ� Ӧ��Ͷ��һ���������ݵ�IRP�� ����������ӽ�������
+		// 成功连接对端， 应该投递一个接收数据的IRP， 允许这个连接接收数据
 		if (allocate_packet(ncb->link, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet_rcv) < 0) {
 			break;
 		}
@@ -809,10 +809,10 @@ void tcp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 }
 
 /*++
-	��Ҫ:
-	tcp_shutdwon_by_packet ����һ��Ӧ�ñ����������õĹ���
-	��������ĵ��ö������޷��������쳣�� ������������ĵ��ã� ���˻��ͷŰ����ڴ��⣬ ����رհ��ڵ�ncb_t����
-	��Ҫ����ʹ��
+	重要:
+	tcp_shutdwon_by_packet 不是一个应该被经常被调用的过程
+	这个函数的调用多用于无法处理的异常， 而且这个函数的调用， 除了会释放包的内存外， 还会关闭包内的ncb_t对象
+	需要谨慎使用
 	--*/
 void tcp_shutdwon_by_packet( packet_t * packet )
 {
@@ -832,10 +832,10 @@ void tcp_shutdwon_by_packet( packet_t * packet )
 			break;
 
 			//
-			// ACCEPT��Ҫ�������⴦��
-			// 1. ���رռ����Ķ���
-			// 2. �رճ����������У� accept�Ķ���
-			// 3. �����ӳ�һ��accept����
+			// ACCEPT需要作出特殊处理
+			// 1. 不关闭监听的对象
+			// 2. 关闭出错的请求中， accept的对象
+			// 3. 重新扔出一个accept请求
 			//
 		case kSyn:
 			{
@@ -926,9 +926,9 @@ HTCPLINK __stdcall tcp_create( tcp_io_callback_t user_callback, const char* l_ip
 }
 
 /*
- * �ر���Ӧ���:
- * �������ٲ����п�����ϣ���ж�ĳЩ���������� �� connect
- * �ʽ�������Ϊ����Ϊֱ�ӹر��������� ͨ������ָ�����ٶ���
+ * 关闭响应变更:
+ * 对象销毁操作有可能是希望中断某些阻塞操作， 如 connect
+ * 故将销毁行为调整为直接关闭描述符后， 通过智能指针销毁对象
  */
 void __stdcall tcp_destroy( HTCPLINK lnk )
 {
@@ -977,13 +977,13 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 			break;
 		}
 
-		// ������ز�ȡ�����ַ�ṹ��˿ڣ� ����Ҫȡ��Ψһ��Ч�ĵ�ַ�ṹ�Ͷ˿�
+		// 如果本地采取随机地址结构或端口， 则需要取得唯一生效的地址结构和端口
 		if ( 0 == ncb->l_addr_.sin_port || 0 == ncb->l_addr_.sin_addr.S_un.S_addr ) {
 			struct sockaddr_in name;
 			int name_length = sizeof( name );
 			if (getsockname(ncb->sockfd, (struct sockaddr *)&name, &name_length) >= 0) {
 				ncb->l_addr_.sin_port = name.sin_port;
-				ncb->l_addr_.sin_addr.S_un.S_addr = ntohl( name.sin_addr.S_un.S_addr );/*Ϊ�˱��ּ����ԣ� ����ת����ַΪ���*/
+				ncb->l_addr_.sin_addr.S_un.S_addr = ntohl( name.sin_addr.S_un.S_addr );/*为了保持兼容性， 这里转换地址为大端*/
 			}
 		}
 
@@ -992,7 +992,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 		c_data.e.LinkOption.OptionLink = lnk;
 		ncb_callback( ncb, &c_event, &c_data );
 
-		// �ɹ����ӶԶˣ� Ӧ��Ͷ��һ���������ݵ�IRP�� ����������ӽ�������
+		// 成功连接对端， 应该投递一个接收数据的IRP， 允许这个连接接收数据
 		if (allocate_packet(ncb->link, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kNonPagedPool, &packet) < 0) {
 			break;
 		}
@@ -1130,7 +1130,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 
 		if ((!ncb->tcp_tst_.builder_) || (ncb->optmask & LINKATTR_TCP_NO_BUILD)) {
 			total_packet_length = cb;
-			// û��ָ���²�Э��Ĺ������̣�����Ϊ���������Ѿ�������²�Э��Ĺ���
+			// 没有指定下层协议的构建例程，则认为传入数据已经完成了下层协议的构建
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
 				break;
 			}
@@ -1148,7 +1148,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 				break;
 			}
 
-			// Э�鹹�����̸��𹹽�Э��ͷ
+			// 协议构建例程负责构建协议头
 			if (ncb->tcp_tst_.builder_(buffer, cb) < 0) {
 				break;
 			}
@@ -1162,7 +1162,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 			}
 		}
 
-		// �����
+		// 分配包
 		if ( allocate_packet( ( objhld_t ) lnk, kProto_TCP, kSend, 0, kNoAccess, &packet ) < 0 ) {
 			break;
 		}
@@ -1170,12 +1170,12 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 		packet->ori_buffer_ = packet->irp_ = buffer;
 		packet->size_for_req_ = total_packet_length;
 
-		// ������������Ͷ�����
+		// 将包加入待发送队列中
 		EnterCriticalSection( &ncb->tcp_lst_lock_ );
 		list_add_tail(&packet->pkt_lst_entry_, &ncb->tcp_waitting_list_head_);
 		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
 
-		// �����ж��Ƿ�Ͷ���첽����ĺ���ʱ��
+		// 自由判断是否投递异步请求的合适时机
 		tcp_try_write(ncb);
 		retval = 0;
 	} while ( FALSE );

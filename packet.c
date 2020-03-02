@@ -1,4 +1,4 @@
-#include "network.h"
+ï»¿#include "network.h"
 #include "ncb.h"
 #include "packet.h"
 #include "mxx.h"
@@ -19,8 +19,8 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 	}
 
 	do {
-		// Èç¹û²»ĞèÒªÌîĞ´Êı¾İ³¤¶È£¬ ÔòÓÉµ÷ÓÃÏß³Ì×ÔĞĞ°²ÅÅ°üÖĞµÄÊı¾İÖ¸ÕëÖ¸Ïò
-		// ÕâÖÖ·½Ê½ÊÊÓÃÓÚÇ³¿½±´µÄ·¢ËÍ²Ù×÷
+		// å¦‚æœä¸éœ€è¦å¡«å†™æ•°æ®é•¿åº¦ï¼Œ åˆ™ç”±è°ƒç”¨çº¿ç¨‹è‡ªè¡Œå®‰æ’åŒ…ä¸­çš„æ•°æ®æŒ‡é’ˆæŒ‡å‘
+		// è¿™ç§æ–¹å¼é€‚ç”¨äºæµ…æ‹·è´çš„å‘é€æ“ä½œ
 		if ( cbSize > 0 ) {
 			if ( page_style == kNonPagedPool ) {
 #pragma warning(suppress: 6387)
@@ -313,7 +313,7 @@ int syio_v_disconnect( ncb_t * ncb )
 	struct sockaddr_in addr;
 	int retval;
 
-	// UDPµÄĞ­Òé¶ÔÏóĞèÒª´¦ÀíÎ±Á¬½Ó
+	// UDPçš„åè®®å¯¹è±¡éœ€è¦å¤„ç†ä¼ªè¿æ¥
 	if ( kProto_UDP != ncb->proto_type_ ) return -1;
 
 	if ( 0 == ncb->connected_ ) return 0;
@@ -321,7 +321,7 @@ int syio_v_disconnect( ncb_t * ncb )
 	ncb->connected_ = 0;
 	memset( &addr, 0, sizeof( addr ) );
 
-	// ÃæÏòÎŞÁ¬½ÓµÄ0µØÖ·½á¹¹Á¬½Ó²Ù×÷£¬ ¼´Îª·´ÏòÉèÖÃÎ±Á¬½Ó£¬ ·´ÏòÉèÖÃÎ±Á¬½Óºó£¬ UDP¶ÔÏó¿ÉÒÔ¼ÌĞø´¦ÀíÔ´Á¬½ÓÒÔÍâµÄµØÖ·ËùµÃµÄ°ü
+	// é¢å‘æ— è¿æ¥çš„0åœ°å€ç»“æ„è¿æ¥æ“ä½œï¼Œ å³ä¸ºåå‘è®¾ç½®ä¼ªè¿æ¥ï¼Œ åå‘è®¾ç½®ä¼ªè¿æ¥åï¼Œ UDPå¯¹è±¡å¯ä»¥ç»§ç»­å¤„ç†æºè¿æ¥ä»¥å¤–çš„åœ°å€æ‰€å¾—çš„åŒ…
 	retval = WSAConnect(ncb->sockfd, (const struct sockaddr *)&addr, sizeof(addr), NULL, NULL, NULL, NULL);
 	if ( retval < 0 ) {
 		nis_call_ecr("[nshost.packet.syio_v_disconnect] syscall WSAConnect failed,error code=%u", WSAGetLastError());
@@ -339,13 +339,13 @@ int syio_v_connect( ncb_t * ncb, const struct sockaddr_in *r_addr )
 		return -1;
 	}
 
-	// Ê¹ÓÃÎ±Á¬½Óºó£¬ UDPµÄ±¾µØµØÖ·¿ÉÒÔ±»È·¶¨
+	// ä½¿ç”¨ä¼ªè¿æ¥åï¼Œ UDPçš„æœ¬åœ°åœ°å€å¯ä»¥è¢«ç¡®å®š
 	if ( 0 == ncb->l_addr_.sin_port || 0 == ncb->l_addr_.sin_addr.S_un.S_addr ) {
 		struct sockaddr_in s_name;
 		int name_length = sizeof( s_name );
 		if (getsockname(ncb->sockfd, (struct sockaddr *)&s_name, &name_length) >= 0) {
 			ncb->l_addr_.sin_port = s_name.sin_port;
-			ncb->l_addr_.sin_addr.S_un.S_addr = htonl( s_name.sin_addr.S_un.S_addr );/*ÎªÁË±£³Ö¼æÈİĞÔ£¬ ÕâÀï×ª»»µØÖ·Îª´ó¶Ë*/
+			ncb->l_addr_.sin_addr.S_un.S_addr = htonl( s_name.sin_addr.S_un.S_addr );/*ä¸ºäº†ä¿æŒå…¼å®¹æ€§ï¼Œ è¿™é‡Œè½¬æ¢åœ°å€ä¸ºå¤§ç«¯*/
 		}
 	}
 

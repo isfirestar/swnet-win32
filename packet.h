@@ -1,14 +1,14 @@
-#if !defined (NETWORK_BASICE_PACKET_HEADER_20120824_1)
+ï»¿#if !defined (NETWORK_BASICE_PACKET_HEADER_20120824_1)
 #define NETWORK_BASICE_PACKET_HEADER_20120824_1
 
 #include "object.h"
 
 #if !defined USES_LOCAL_ROUTE_TABLE
-#define USES_LOCAL_ROUTE_TABLE									(1)		// ¿ª¹Ø, ¾­¹ı±¾µØÂ·ÓÉ±í
+#define USES_LOCAL_ROUTE_TABLE									(1)		// å¼€å…³, ç»è¿‡æœ¬åœ°è·¯ç”±è¡¨
 #endif
 
-#define MAXIMUM_TRANSMIT_BYTES_PER_GROUP						(0x7FFFFFFE)				// µ¥´Î×é·¢ËÍ×î´ó²Ù×÷×Ö½ÚÊı
-#define MAXIMUM_GPM_ITEM_COUNT									(32)						// GPM·½Ê½×î´óµ¥°ü¸öÊı
+#define MAXIMUM_TRANSMIT_BYTES_PER_GROUP						(0x7FFFFFFE)				// å•æ¬¡ç»„å‘é€æœ€å¤§æ“ä½œå­—èŠ‚æ•°
+#define MAXIMUM_GPM_ITEM_COUNT									(32)						// GPMæ–¹å¼æœ€å¤§å•åŒ…ä¸ªæ•°
 
 enum pkt_type_t {
 	kSend = 1,
@@ -26,31 +26,31 @@ enum page_style_t {
 
 typedef struct _NCC_PACKET {
 	OVERLAPPED overlapped_;
-	enum pkt_type_t type_;		// Çø±ğÊÕ°ü·¢°ü
-	enum proto_type_t proto_type_;// Ğ­ÒéÀàĞÍ
-	enum page_style_t page_style_;				// »º³åÇøÒ³ÊôĞÔ
-	uint32_t flag_;				// ±£´æÒì²½¹ı³ÌÖĞµÄflag
-	int from_length_;				// ±£´æfromlen
-	objhld_t link;					// ¿ØÖÆ¿éµÄ¾ä±ú
-	objhld_t accepted_link;			// ÓÃÓÚ tcp accept µÄ¶Ô¶Ë¶ÔÏó¾ä±ú
+	enum pkt_type_t type_;		// åŒºåˆ«æ”¶åŒ…å‘åŒ…
+	enum proto_type_t proto_type_;// åè®®ç±»å‹
+	enum page_style_t page_style_;				// ç¼“å†²åŒºé¡µå±æ€§
+	uint32_t flag_;				// ä¿å­˜å¼‚æ­¥è¿‡ç¨‹ä¸­çš„flag
+	int from_length_;				// ä¿å­˜fromlen
+	objhld_t link;					// æ§åˆ¶å—çš„å¥æŸ„
+	objhld_t accepted_link;			// ç”¨äº tcp accept çš„å¯¹ç«¯å¯¹è±¡å¥æŸ„
 	union {							
-		struct {						// ¶Ô UDP ¶ÔÏó£¬ ´æ´¢·¢ËÍÄ¿±êµØÖ·
+		struct {						// å¯¹ UDP å¯¹è±¡ï¼Œ å­˜å‚¨å‘é€ç›®æ ‡åœ°å€
 			struct sockaddr_in r_addr_;
 			struct sockaddr_in l_addr_;
 		};
-		struct list_head pkt_lst_entry_;	// ¶Ô TCP ·¢ËÍ¶ÔÏóµÄ ncb_t::tcp_waitting_list_head_ ¹³Á´(Ã¿¸ö°ü¶¼ÊÇÒ»¸ö½Úµã)
+		struct list_head pkt_lst_entry_;	// å¯¹ TCP å‘é€å¯¹è±¡çš„ ncb_t::tcp_waitting_list_head_ é’©é“¾(æ¯ä¸ªåŒ…éƒ½æ˜¯ä¸€ä¸ªèŠ‚ç‚¹)
 	};
-	int size_for_req_;				// Í¶µİÇëÇóÇ°µÄ£¬ »º³åÇø³¤¶È
-	int size_for_translation_;		// ½»»»×Ö½ÚÊı
-	int size_completion_;			// Í¶µİ¸øÏµÍ³ÓÃÓÚ½ÓÊÕÍê³É³¤¶ÈµÄ×Ö¶Î£¬ Çø±ğÓÚ size_for_translation_, ´Ë×Ö¶Î²¢²»½¨ÒéÊ¹ÓÃ
-	int analyzed_offset_;			// ±£´æ TCP ½â°ü¹ı³ÌÖĞµÄÔ­Ê¼µØÖ·Æ«ÒÆ½âÎö
-	void *ori_buffer_;				// Ô­Ê¼Êı¾İÖ¸Õë£¬ ÒòÎªirp_×Ö¶Î¿ÉÄÜÒòÎªÍ¶µİ¸øÏµÍ³µÄÖ¸ÕëÒÆ¶¯¶ø±ä»¯£¬ Òò´ËÔ­Ê¼µØÖ·ĞèÒª¼ÇÂ¼
+	int size_for_req_;				// æŠ•é€’è¯·æ±‚å‰çš„ï¼Œ ç¼“å†²åŒºé•¿åº¦
+	int size_for_translation_;		// äº¤æ¢å­—èŠ‚æ•°
+	int size_completion_;			// æŠ•é€’ç»™ç³»ç»Ÿç”¨äºæ¥æ”¶å®Œæˆé•¿åº¦çš„å­—æ®µï¼Œ åŒºåˆ«äº size_for_translation_, æ­¤å­—æ®µå¹¶ä¸å»ºè®®ä½¿ç”¨
+	int analyzed_offset_;			// ä¿å­˜ TCP è§£åŒ…è¿‡ç¨‹ä¸­çš„åŸå§‹åœ°å€åç§»è§£æ
+	void *ori_buffer_;				// åŸå§‹æ•°æ®æŒ‡é’ˆï¼Œ å› ä¸ºirp_å­—æ®µå¯èƒ½å› ä¸ºæŠ•é€’ç»™ç³»ç»Ÿçš„æŒ‡é’ˆç§»åŠ¨è€Œå˜åŒ–ï¼Œ å› æ­¤åŸå§‹åœ°å€éœ€è¦è®°å½•
 	union {							
 		struct {
-			PTRANSMIT_PACKETS_ELEMENT grp_packets_; // µ±Ê¹ÓÃ grp ·½Ê½½øĞĞ·¢ËÍ²Ù×÷£¬ Ôò»º³åÇøÎ»ÓÚ´ËÊı×éÄÚ, µ«ÊÇpacketÄ£¿é²»¸ºÔğÕâĞ©¾ßÌåÄÚ´æµÄ¹ÜÀí¹¤×÷
+			PTRANSMIT_PACKETS_ELEMENT grp_packets_; // å½“ä½¿ç”¨ grp æ–¹å¼è¿›è¡Œå‘é€æ“ä½œï¼Œ åˆ™ç¼“å†²åŒºä½äºæ­¤æ•°ç»„å†…, ä½†æ˜¯packetæ¨¡å—ä¸è´Ÿè´£è¿™äº›å…·ä½“å†…å­˜çš„ç®¡ç†å·¥ä½œ
 			int grp_packets_cnt_;
 		};
-		void *irp_;			// ÓÃ»§Êı¾İÖ¸Õë, Êµ¼ÊµÄIRPÄÚ´æµØÖ·
+		void *irp_;			// ç”¨æˆ·æ•°æ®æŒ‡é’ˆ, å®é™…çš„IRPå†…å­˜åœ°å€
 	};
 }packet_t;
 

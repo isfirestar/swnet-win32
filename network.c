@@ -1,4 +1,4 @@
-#include "network.h"
+ï»¿#include "network.h"
 #include "io.h"
 #include "ncb.h"
 #include "packet.h"
@@ -16,7 +16,7 @@ extern void tcp_shutdwon_by_packet( packet_t * packet );
 static char __so_protocol_initialized[kProto_MaximumId] = { 0 };
 static long __so_startup = 0;
 
-////////////////////////////////////////////////////				ÍøÂçÏà¹Ø½Ó¿ÚÊµÏÖ				/////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////				ç½‘ç»œç›¸å…³æ¥å£å®ç°				/////////////////////////////////////////////////////////////////////////////
 int so_init( enum proto_type_t proto_type, int th_cnt )
 {
 	struct WSAData wsd;
@@ -29,7 +29,7 @@ int so_init( enum proto_type_t proto_type, int th_cnt )
 			return -1;
 		}
 
-		// ËæµÚÒ»´Î³õÊ¼»¯½øĞĞ IOCP ¹ÜÀí¶ÔÏóµÄ³õÊ¼»¯
+		// éšç¬¬ä¸€æ¬¡åˆå§‹åŒ–è¿›è¡Œ IOCP ç®¡ç†å¯¹è±¡çš„åˆå§‹åŒ–
 		if (ioinit(th_cnt) < 0) {
 			WSACleanup();
 			InterlockedDecrement( ( volatile long * ) &__so_startup );
@@ -63,7 +63,7 @@ void so_uninit( enum proto_type_t ProtoType )
 
 	__so_protocol_initialized[ProtoType] = FALSE;
 
-	// Ö»ÓĞËùÓĞĞ­Òé¶¼ÒÑ¾­µ÷ÓÃÊÍ·Å£¬ ²ÅÄÜ×îÖÕ·´³õÊ¼»¯
+	// åªæœ‰æ‰€æœ‰åè®®éƒ½å·²ç»è°ƒç”¨é‡Šæ”¾ï¼Œ æ‰èƒ½æœ€ç»ˆååˆå§‹åŒ–
 	for ( i = 0; i < kProto_MaximumId; i++ ) {
 		if ( __so_protocol_initialized[i] ) {
 			return;
@@ -82,13 +82,13 @@ void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 
 	if ( !packet ) return;
 
-	// Ìî³äÊµ¼ÊµÄ½»»»Êı¾İ³¤¶È
+	// å¡«å……å®é™…çš„äº¤æ¢æ•°æ®é•¿åº¦
 	packet->size_for_translation_ = transfer_bytes;
 
-	// ½«ÄÚ²¿´íÎóĞÅÏ¢ÒÔ²ÎÊı·½Ê½Í¶µİ¸øĞ­Òé´úÂë½øĞĞ´íÎó´¦Àí
+	// å°†å†…éƒ¨é”™è¯¯ä¿¡æ¯ä»¥å‚æ•°æ–¹å¼æŠ•é€’ç»™åè®®ä»£ç è¿›è¡Œé”™è¯¯å¤„ç†
 	status = ( NTSTATUS ) pOvlp->Internal;
 
-	// °´Ğ­ÒéÀàĞÍ·Ö·¢Òì³£
+	// æŒ‰åè®®ç±»å‹åˆ†å‘å¼‚å¸¸
 	switch ( packet->proto_type_ ) {
 		case kProto_UDP:
 			udp_dispatch_io_event( packet, status );
