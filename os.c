@@ -43,12 +43,12 @@ uint32_t Protect
 			Protect
 			);
 		if ( NULL == MemoryBlock ) {
-			nis_call_ecr("failed to call VirtualAlloc, error:%u", GetLastError() );
+			nis_call_ecr("[nshost.os.os_allocate_block] failed to call VirtualAlloc, error:%u", GetLastError() );
 		}
 	} __except ( EXCEPTION_EXECUTE_HANDLER )
 	{
 		MemoryBlock = NULL;
-		nis_call_ecr("failed to allocate virtual memory block, process handle:0x%08X, size:%u, exception code:0%08X",
+		nis_call_ecr("[nshost.os.os_allocate_block] failed to allocate virtual memory block, process handle:0x%08X, size:%u, exception code:0%08X",
 			handleProcess, blockSizeCb, GetExceptionCode() );
 	}
 
@@ -62,7 +62,7 @@ os_free_memory_block( void * MemoryBlock ) {
 			VirtualFree( MemoryBlock, 0, MEM_RELEASE );
 		} __except ( EXCEPTION_EXECUTE_HANDLER )
 		{
-			nis_call_ecr("failed to allocate virtual memory block, exception code:0%08X", GetExceptionCode() );
+			nis_call_ecr("[nshost.os.os_free_memory_block] failed to allocate virtual memory block, exception code:0%08X", GetExceptionCode() );
 		}
 	}
 }
@@ -141,11 +141,11 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 						PAGE_READWRITE
 						);
 					if ( NULL == MemoryBlock ) {
-						nis_call_ecr("failed VirtualAlloc, code:0x%08X", GetLastError() );
+						nis_call_ecr("[nshost.os.os_lock_virtual_pages] failed VirtualAlloc, code:0x%08X", GetLastError() );
 						break;
 					}
 				} __except ( EXCEPTION_EXECUTE_HANDLER ) {
-					nis_call_ecr("failed to allocate virtual memory block, error code:0x%08X", GetExceptionCode() );
+					nis_call_ecr("[nshost.os.os_lock_virtual_pages] failed to allocate virtual memory block, error code:0x%08X", GetExceptionCode() );
 					break;
 				}
 
@@ -175,7 +175,7 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 				GetCurrentProcessId()
 				);
 			if ( INVALID_HANDLE_VALUE == handleProcess ) {
-				nis_call_ecr("failed OpenProcess, code:0x%08X", GetLastError() );
+				nis_call_ecr("[nshost.os.os_lock_virtual_pages] failed OpenProcess, code:0x%08X", GetLastError() );
 				break;
 			}
 		}
@@ -189,7 +189,7 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 			&MaximumWorkingSetSize
 			);
 		if ( !Successful ) {
-			nis_call_ecr("failed GetProcessWorkingSetSize, code:0x%08X", GetLastError() );
+			nis_call_ecr("[nshost.os.os_lock_virtual_pages] failed GetProcessWorkingSetSize, code:0x%08X", GetLastError() );
 			break;
 		}
 
@@ -206,7 +206,7 @@ os_lock_virtual_pages( void * MemoryBlock, uint32_t Size ) {
 			MaximumWorkingSetSize
 			);
 		if ( !Successful ) {
-			nis_call_ecr("failed SetProcessWorkingSetSize, code:0x%08X", GetLastError() );
+			nis_call_ecr("[nshost.os.os_lock_virtual_pages] failed SetProcessWorkingSetSize, code:0x%08X", GetLastError() );
 			break;
 		}
 

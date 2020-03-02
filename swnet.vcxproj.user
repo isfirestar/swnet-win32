@@ -12,9 +12,10 @@
     <LocalDebuggerWorkingDirectory>D:\work\git\swnet-test\win32\bin\Debug\</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommand>F:\LocalTest\RobotMotion 2.2\motion_template.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>-sl canbus_driver_sim.dll --startup-simodo 0:0:0</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>F:\LocalTest\RobotMotion 2.2\</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>D:\git\my\9.7\demo\Debug\demo.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>
+    </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>D:\git\my\9.7\demo\Debug\</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <RemoteDebuggerCommand>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommand>
     <RemoteDebuggerCommandArguments>C:\Users\neo-anderson\Desktop\swnet\client.exe</RemoteDebuggerCommandArguments>

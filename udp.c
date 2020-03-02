@@ -51,7 +51,7 @@ static void udp_dispatch_io_recv( packet_t *packet )
 	}
 
 	if (udprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
+		nis_call_ecr("[nshost.udp.udp_dispatch_io_recv] fail to reference ncb object:%I64d", packet->link);
 		return;
 	}
 
@@ -89,14 +89,16 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	ncb_t *ncb;
 	int close = 1;
 
-	if ( !packet ) return;
-
-	if (udprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", packet->link);
+	if (!packet) {
 		return;
 	}
 
-	nis_call_ecr("udp io exception on lnk [0x%08X], NTSTATUS=0x%08X", packet->link, status);
+	if (udprefr(packet->link, &ncb) < 0) {
+		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] fail to reference ncb object:0x%08X", packet->link);
+		return;
+	}
+
+	nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] io exception on lnk %I64d, NTSTATUS=0x%08X", packet->link, status);
 
 	if ( kRecv == packet->type_ ) {
 		/* ¶Ô STATUS_PORT_UNREACHABLE / STATUS_PROTOCOL_UNREACHABLE / STATUS_HOST_UNREACHABLE ×´Ì¬×ö¹ýÂË
@@ -457,7 +459,7 @@ void __stdcall udp_destroy( HUDPLINK lnk )
 	/* it should be the last reference operation of this object no matter how many ref-count now. */
 	ncb = objreff(lnk);
 	if (ncb) {
-		nis_call_ecr("nshost.udp.destroy: link %I64d order to destroy", ncb->link);
+		nis_call_ecr("[nshost.udp.udp_destroy] link %I64d order to destroy", ncb->link);
 		ioclose(ncb);
 		objdefr(lnk);
 	}
@@ -483,7 +485,7 @@ int __stdcall udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
 		return 0;
 	}
 
-	nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
+	nis_call_ecr("[nshost.udp.udp_getaddr] fail to reference ncb object:%I64d", lnk );
 	return -1;
 }
 
@@ -497,7 +499,7 @@ int __stdcall udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("[nshost.udp.udp_setopt] fail to reference ncb object:%I64d", lnk );
 		return -1;
 	}
 
@@ -516,7 +518,7 @@ int __stdcall udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len 
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("[nshost.udp.udp_getopt] fail to reference ncb object:%I64d", lnk );
 		return -1;
 	}
 
@@ -541,7 +543,7 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("[nshost.udp.udp_initialize_grp] fail to reference ncb object:%I64d", lnk );
 		return -1;
 	}
 
@@ -596,7 +598,7 @@ int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port 
 	struct sockaddr_in r_addr;
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("[nshost.udp.udp_detach_grp] fail to reference ncb object:%I64d", lnk );
 		return -1;
 	}
 
@@ -636,7 +638,7 @@ void __stdcall udp_detach_grp( HUDPLINK lnk )
 	ncb_t * ncb;
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("[nshost.udp.udp_detach_grp] fail to reference ncb object:%I64d", lnk );
 		return;
 	}
 
@@ -663,7 +665,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("fail to reference ncb object:0x%08X", lnk );
+		nis_call_ecr("[nshost.udp.udp_write_grp] fail to reference ncb object:%I64d", lnk );
 		return -1;
 	}
 

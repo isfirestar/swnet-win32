@@ -24,7 +24,7 @@ int so_init( enum proto_type_t proto_type, int th_cnt )
 	if ( 1 == InterlockedIncrement( ( volatile long * ) &__so_startup )) {
 
 		if ( WSAStartup( MAKEWORD( 2, 2 ), &wsd ) < 0 ) {
-			nis_call_ecr( "syscall failed,error code=%u", WSAGetLastError() );
+			nis_call_ecr( "[nshost.network.so_init] syscall WSAStartup(2) failed,error code=%u", WSAGetLastError() );
 			InterlockedDecrement( ( volatile long * ) &__so_startup );
 			return -1;
 		}
@@ -41,14 +41,14 @@ int so_init( enum proto_type_t proto_type, int th_cnt )
 		InterlockedDecrement( ( volatile long * ) &__so_startup );
 	}
 
-	if ( ( kProto_TCP == proto_type ) && ( __so_protocol_initialized[kProto_TCP] ) ) {
+	if ( ( kProto_TCP == proto_type ) && ( 0 == __so_protocol_initialized[kProto_TCP] ) ) {
 		__so_protocol_initialized[kProto_TCP] = 1;
-		nis_call_ecr( "tcp protocol initialize successful." );
+		nis_call_ecr( "[nshost.network.so_init] tcp protocol initialize successful." );
 	}
 
 	if ( ( kProto_UDP == proto_type ) && ( 0 == __so_protocol_initialized[kProto_UDP] ) ) {
 		__so_protocol_initialized[kProto_UDP] = 1;
-		nis_call_ecr( "udp protocol initialize successful." );
+		nis_call_ecr( "[nshost.network.so_init] udp protocol initialize successful." );
 	}
 	return 0;
 }
@@ -57,7 +57,9 @@ void so_uninit( enum proto_type_t ProtoType )
 {
 	int i;
 
-	if ( kProto_TCP != ProtoType && kProto_UDP != ProtoType )  return;
+	if (kProto_TCP != ProtoType && kProto_UDP != ProtoType) {
+		return;
+	}
 
 	__so_protocol_initialized[ProtoType] = FALSE;
 
@@ -95,7 +97,7 @@ void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 			tcp_dispatch_io_event( packet, status );
 			break;
 		default:
-			nis_call_ecr( "unknown packet protocol type [%u] dispatch to network.", packet->proto_type_ );
+			nis_call_ecr( "[nshost.network.so_dispatch_io_event] unknown packet protocol type [%u] dispatch to network.", packet->proto_type_ );
 			break;
 	}
 }
@@ -124,7 +126,7 @@ SOCKET so_allocate_asio_socket( int type, int protocol )
 {
 	SOCKET s = WSASocket( PF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED );
 	if ( s < 0 ) {
-		nis_call_ecr( "syscall failed,error code=%u", WSAGetLastError() );
+		nis_call_ecr( "[nshost.network.so_allocate_asio_socket] syscall WSASocket(2) failed,error code=%u", WSAGetLastError() );
 	}
 	return s;
 }
@@ -142,7 +144,7 @@ int so_bind( SOCKET *s, uint32_t ip, uint16_t port )
 
 	retval = bind( *s, ( const struct sockaddr * )&addr, sizeof( struct sockaddr ) );
 	if ( retval < 0 ) {
-		nis_call_ecr( "syscall failed,error code=%u", WSAGetLastError() );
+		nis_call_ecr( "[nshost.network.so_bind] syscall bind(2) failed,error code=%u", WSAGetLastError() );
 	}
 	return retval;
 }
