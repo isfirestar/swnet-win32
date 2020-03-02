@@ -5,6 +5,8 @@
 #include "clist.h"
 #include "nis.h"
 
+#include <ntstatus.h>
+
 #include <ws2ipdef.h>
 
 typedef int( *object_entry_t )( objhld_t h, void * user_buffer, void * ncb_ctx );

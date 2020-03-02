@@ -588,6 +588,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 {
 	ncb_t *ncb;
 	objhld_t h;
+	int n;
 
 	if ( !packet ) return;
 
@@ -603,8 +604,8 @@ void tcp_dispatch_io_send( packet_t *packet )
 	}
 	
 	// 递减累积的缓冲区个数
-	InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
-
+	n = InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
+	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] link:%I64d, remote:0x%08X, raise sender cache to:%d", packet->link,ncb->r_addr_.sin_addr.S_un.S_addr, n);
 	// 如果尝试发送过程中发生系统调用失败， 则包缓冲区将被销毁， 同时链接将被关闭
 	// 继续尝试发下一个包
 	tcp_try_write( ncb );
@@ -740,6 +741,7 @@ static
 void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 {
 	ncb_t * ncb;
+	int n;
 
 	if (!packet) {
 		return;
@@ -758,8 +760,17 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 			break;
 		}
 
+		/* these reasons are not necessary to continue */
+		if (STATUS_REMOTE_DISCONNECT == status || 
+			STATUS_CONNECTION_DISCONNECTED == status || 
+			STATUS_CONNECTION_RESET == status) {
+			tcp_shutdwon_by_packet(packet);
+			break;
+		}
+
 		// reduce the refers counter,allow next @tcp_write call
-		InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
+		n = InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] link:%I64d, remote:0x%08X, raise sender cache to:%d", packet->link, ncb->r_addr_.sin_addr.S_un.S_addr, n);
 		// release the current package
 		freepkt(packet);
 		// try post next package
@@ -1093,6 +1104,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	packet_t *packet;
 	int total_packet_length;
 	int retval;
+	int n;
 
 	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb >= TCP_MAXIMUM_PACKET_SIZE || !origin) {
 		return -1;
@@ -1108,7 +1120,10 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	}
 
 	do {
-		if (InterlockedIncrement((volatile LONG *)&ncb->cached_item_count_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
+		n = InterlockedIncrement((volatile LONG *)&ncb->cached_item_count_);
+		nis_call_ecr("[nshost.tcp.tcp_write] link:%I64d, remote:0x%08X, raise sender cache to:%d", lnk, ncb->r_addr_.sin_addr.S_un.S_addr, n);
+		//if (InterlockedIncrement((volatile LONG *)&ncb->cached_item_count_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
+		if (n >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
 			nis_call_ecr("[nshost.tcp.tcp_write] pre-sent cache overflow.link:%I64d", lnk);
 			break;
 		}
