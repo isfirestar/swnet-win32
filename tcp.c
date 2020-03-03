@@ -348,6 +348,7 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		InitializeCriticalSection(&ncb->tcp_sender_locker_);
 		INIT_LIST_HEAD(&ncb->tcp_sender_cache_head_);
 		ncb->tcp_sender_cached_count_ = 0;
+		ncb->tcp_sender_pending_count_ = 0;
 
 		// 如果是远程连接得到的ncb_t, 操作到此完成
 		if ( init_ctx->is_remote_ ) {
