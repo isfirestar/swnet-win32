@@ -38,7 +38,7 @@ typedef struct _NCC_PACKET {
 			struct sockaddr_in r_addr_;
 			struct sockaddr_in l_addr_;
 		};
-		struct list_head pkt_lst_entry_;	// 对 TCP 发送对象的 ncb_t::tcp_waitting_list_head_ 钩链(每个包都是一个节点)
+		struct list_head pkt_lst_entry_;	// 对 TCP 发送对象的 ncb_t::tcp_sender_cache_head_ 钩链(每个包都是一个节点)
 	};
 	int size_for_req_;				// 投递请求前的， 缓冲区长度
 	int size_for_translation_;		// 交换字节数

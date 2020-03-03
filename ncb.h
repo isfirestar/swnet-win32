@@ -32,30 +32,29 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
     struct timeval				rcvtimeo;					// 接收超时
     struct timeval				sndtimeo;					// 发送超时
 
-	/* IP头的 tos 项
-     * Differentiated Services Field: Dirrerentiated Services Codepoint/Explicit Congestion Not fication 指定TOS段
+	/* tos item in IP layer:
+     * Differentiated Services Field: Dirrerentiated Services Codepoint/Explicit Congestion Not fication 
      *  */
     int iptos;
 
 	int optmask;
 
-	struct {												// 大包解读(大于64KB但是不足50MB的TCP数据包)
-		char*					lb_data_;					// large block data
-		int						lb_cpy_offset_;				// 当前已经赋值的大包数据段偏移
-		int						lb_length_;					// 当前大包缓冲区长度
+	struct {												/* large block(size in range (64KB, 50MB]) */
+		char*					lb_data_;					/* large block data memory */
+		int						lb_cpy_offset_;				/* the data offset which has been copied into large packet buffer */
+		int						lb_length_;					/* current length of large packet in bytes */
 	};
 	struct {											
-		struct list_head		tcp_waitting_list_head_;	// TCP等待发送包链
-		int						cached_item_count_;
-		CRITICAL_SECTION		tcp_lst_lock_;				// TCP的包链锁
-		//int						tcp_usable_sender_cache_;	// (这个链上的) 下层可用缓冲区字节数
-		//int						tcp_pending_cnt_;			// (这个链上的) 未决IO请求个数
-		tst_t					tcp_tst_;					// TCP(属于这个链的)协议解析模板
+		struct list_head		tcp_sender_cache_head_;		/* TCP sender control and traffic manager */
+		int						tcp_sender_cached_count_;	/* the count of packet pending in @tcp_sender_cache_head_ */
+		CRITICAL_SECTION		tcp_sender_locker_;			/* lock element: @tcp_sender_cache_head_ and @tcp_sender_cached_count_*/
+		int						tcp_sender_pending_count_;	/* the total pending count on this link */
+		tst_t					tcp_tst_;					/* protocol template on this link */
         int						mss;						/* MSS of tcp link */
 	};
 	struct {											
-		void *					ncb_ctx_;					// 用户上下文
-		int						ncb_ctx_size_;				// 用户上下文长度
+		void *					ncb_ctx_;					/* user context set on this link */
+		int						ncb_ctx_size_;				/* size of @ncb_ctx_ in bytes */
 	};
 
 }ncb_t;

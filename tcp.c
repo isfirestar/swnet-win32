@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <mstcpip.h>
 
+#define TRACE_SENDER_PENDING (0)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define TCP_ACCEPT_EXTENSION_SIZE					( 1024 )
 #define TCP_RECV_BUFFER_SIZE						( 17 * PAGE_SIZE )
@@ -66,7 +67,7 @@ typedef struct _TCP_INFO_v0 {
 	UCHAR    SynRetrans;
 } TCP_INFO_v0, *PTCP_INFO_v0;
 
-void tcp_shutdwon_by_packet( packet_t * packet );
+void tcp_shutdown_by_packet( packet_t * packet );
 static int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp);
 static int tcp_setmss( ncb_t *ncb, int mss );
 static int tcp_getmss( ncb_t *ncb );
@@ -105,14 +106,22 @@ void tcp_try_write( ncb_t * ncb )
 		return;
 	}
 
-	EnterCriticalSection( &ncb->tcp_lst_lock_ );
+	EnterCriticalSection( &ncb->tcp_sender_locker_ );
 
-	if ( list_empty( &ncb->tcp_waitting_list_head_ ) ) {
-		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
+	if ( list_empty( &ncb->tcp_sender_cache_head_ ) ) {
+		LeaveCriticalSection( &ncb->tcp_sender_locker_ );
 		return;
 	}
 
-	next_packet = list_first_entry( &ncb->tcp_waitting_list_head_, packet_t, pkt_lst_entry_ );
+	if (ncb->tcp_sender_pending_count_ > 0) {
+#if TRACE_SENDER_PENDING
+		nis_call_ecr("[nshost.tcp.tcp_try_write] failed by pending restricted.current sender pending:%d", ncb->tcp_sender_pending_count_);
+#endif
+		LeaveCriticalSection(&ncb->tcp_sender_locker_);
+		return;
+	}
+
+	next_packet = list_first_entry( &ncb->tcp_sender_cache_head_, packet_t, pkt_lst_entry_ );
 	list_del_init( &next_packet->pkt_lst_entry_ );
 
 	/*
@@ -121,10 +130,12 @@ void tcp_try_write( ncb_t * ncb )
 	同时, 不再需要继续关注后续处理， 不需要释放本包内存和拉伸发送缓冲区
 	*/
 	if ( asio_tcp_send( next_packet ) < 0 ) {
-		tcp_shutdwon_by_packet( next_packet );
+		tcp_shutdown_by_packet( next_packet );
+	} else {
+		++ncb->tcp_sender_pending_count_;
 	}
 
-	LeaveCriticalSection( &ncb->tcp_lst_lock_ );
+	LeaveCriticalSection( &ncb->tcp_sender_locker_ );
 }
 
 static
@@ -317,9 +328,10 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		}
 
 		// 描述每个链接上的TCP下级缓冲区大小
-		InitializeCriticalSection(&ncb->tcp_lst_lock_);
-		INIT_LIST_HEAD(&ncb->tcp_waitting_list_head_);
-		ncb->cached_item_count_ = 0;
+		InitializeCriticalSection(&ncb->tcp_sender_locker_);
+		INIT_LIST_HEAD(&ncb->tcp_sender_cache_head_);
+		ncb->tcp_sender_cached_count_ = 0;
+		ncb->tcp_sender_pending_count_ = 0;
 
 		// 如果是远程连接得到的ncb_t, 操作到此完成
 		if ( init_ctx->is_remote_ ) {
@@ -379,20 +391,20 @@ void tcp_unload(objhld_t h, void * user_buffer) {
 	// 如果有未完成的大包， 则将大包内存释放
 	ncb_unmark_lb(ncb);
 	// 缓存个数预置为0
-	InterlockedExchange((volatile LONG *)&ncb->cached_item_count_, 0);
+	InterlockedExchange((volatile LONG *)&ncb->tcp_sender_cached_count_, 0);
 	// 取消所有等待发送的包链
-	EnterCriticalSection(&ncb->tcp_lst_lock_);
-	while (!list_empty(&ncb->tcp_waitting_list_head_)) {
-		packet = list_first_entry(&ncb->tcp_waitting_list_head_, packet_t, pkt_lst_entry_);
+	EnterCriticalSection(&ncb->tcp_sender_locker_);
+	while (!list_empty(&ncb->tcp_sender_cache_head_)) {
+		packet = list_first_entry(&ncb->tcp_sender_cache_head_, packet_t, pkt_lst_entry_);
 		list_del(&packet->pkt_lst_entry_);
 		if (packet) {
 			freepkt(packet);
 		}
 	}
-	LeaveCriticalSection(&ncb->tcp_lst_lock_);
+	LeaveCriticalSection(&ncb->tcp_sender_locker_);
 
 	// 关闭包链的锁
-	DeleteCriticalSection(&ncb->tcp_lst_lock_);
+	DeleteCriticalSection(&ncb->tcp_sender_locker_);
 
 	// 释放用户上下文数据指针
 	if (ncb->ncb_ctx_ && 0 != ncb->ncb_ctx_size_) {
@@ -594,7 +606,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 
 	// 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接
 	if ( 0 == packet->size_for_translation_ ) {
-		tcp_shutdwon_by_packet( packet );
+		tcp_shutdown_by_packet( packet );
 		return;
 	}
 
@@ -603,9 +615,18 @@ void tcp_dispatch_io_send( packet_t *packet )
 		return;
 	}
 	
-	// 递减累积的缓冲区个数
-	n = InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
-	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] link:%I64d, remote:0x%08X, raise sender cache to:%d", packet->link,ncb->r_addr_.sin_addr.S_un.S_addr, n);
+	// reduce pending packet count in current ncb context
+	EnterCriticalSection(&ncb->tcp_sender_locker_);
+	--ncb->tcp_sender_pending_count_;
+	LeaveCriticalSection(&ncb->tcp_sender_locker_);
+	// reduce the cached item count
+#if TRACE_SENDER_PENDING
+	n = InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
+	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] link:%I64d, remote:0x%08X, raise sender cache to:%d", packet->link, ncb->r_addr_.sin_addr.S_un.S_addr, n);
+#else
+	InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
+#endif
+	
 	// 如果尝试发送过程中发生系统调用失败， 则包缓冲区将被销毁， 同时链接将被关闭
 	// 继续尝试发下一个包
 	tcp_try_write( ncb );
@@ -627,7 +648,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	// 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接
 	if ( 0 == packet->size_for_translation_ ) {
-		tcp_shutdwon_by_packet( packet );
+		tcp_shutdown_by_packet( packet );
 		return;
 	}
 
@@ -756,7 +777,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 		// link will be destroy,when the exception happen on the origin request not send.
 		if (kSend != packet->type_) {
-			tcp_shutdwon_by_packet(packet);
+			tcp_shutdown_by_packet(packet);
 			break;
 		}
 
@@ -764,13 +785,21 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		if (STATUS_REMOTE_DISCONNECT == status || 
 			STATUS_CONNECTION_DISCONNECTED == status || 
 			STATUS_CONNECTION_RESET == status) {
-			tcp_shutdwon_by_packet(packet);
+			tcp_shutdown_by_packet(packet);
 			break;
 		}
 
+		// reduce pending packet count in current ncb context
+		EnterCriticalSection(&ncb->tcp_sender_locker_);
+		--ncb->tcp_sender_pending_count_;
+		LeaveCriticalSection(&ncb->tcp_sender_locker_);
 		// reduce the refers counter,allow next @tcp_write call
-		n = InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
+#if TRACE_SENDER_PENDING
+		n = InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
 		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] link:%I64d, remote:0x%08X, raise sender cache to:%d", packet->link, ncb->r_addr_.sin_addr.S_un.S_addr, n);
+#else
+		InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
+#endif
 		// release the current package
 		freepkt(packet);
 		// try post next package
@@ -810,11 +839,11 @@ void tcp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 
 /*++
 	重要:
-	tcp_shutdwon_by_packet 不是一个应该被经常被调用的过程
+	tcp_shutdown_by_packet 不是一个应该被经常被调用的过程
 	这个函数的调用多用于无法处理的异常， 而且这个函数的调用， 除了会释放包的内存外， 还会关闭包内的ncb_t对象
 	需要谨慎使用
 	--*/
-void tcp_shutdwon_by_packet( packet_t * packet )
+void tcp_shutdown_by_packet( packet_t * packet )
 {
 	ncb_t * ncb;
 
@@ -1120,10 +1149,14 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	}
 
 	do {
-		n = InterlockedIncrement((volatile LONG *)&ncb->cached_item_count_);
+#if TRACE_SENDER_PENDING
+		n = InterlockedIncrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
 		nis_call_ecr("[nshost.tcp.tcp_write] link:%I64d, remote:0x%08X, raise sender cache to:%d", lnk, ncb->r_addr_.sin_addr.S_un.S_addr, n);
-		//if (InterlockedIncrement((volatile LONG *)&ncb->cached_item_count_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
-		if (n >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
+		if (n >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) 
+#else
+		if (InterlockedIncrement((volatile LONG *)&ncb->tcp_sender_cached_count_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) 
+#endif
+		{
 			nis_call_ecr("[nshost.tcp.tcp_write] pre-sent cache overflow.link:%I64d", lnk);
 			break;
 		}
@@ -1171,9 +1204,9 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 		packet->size_for_req_ = total_packet_length;
 
 		// 将包加入待发送队列中
-		EnterCriticalSection( &ncb->tcp_lst_lock_ );
-		list_add_tail(&packet->pkt_lst_entry_, &ncb->tcp_waitting_list_head_);
-		LeaveCriticalSection( &ncb->tcp_lst_lock_ );
+		EnterCriticalSection( &ncb->tcp_sender_locker_ );
+		list_add_tail(&packet->pkt_lst_entry_, &ncb->tcp_sender_cache_head_);
+		LeaveCriticalSection( &ncb->tcp_sender_locker_ );
 
 		// 自由判断是否投递异步请求的合适时机
 		tcp_try_write(ncb);
@@ -1181,7 +1214,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	} while ( FALSE );
 
 	if ( retval < 0 ) {
-		InterlockedDecrement((volatile LONG *)&ncb->cached_item_count_);
+		InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
 		if ( buffer ) {
 			free( buffer );
 		}

@@ -10,7 +10,7 @@
 extern void udp_dispatch_io_event( packet_t * packet, NTSTATUS status );
 extern void udp_shutdown( packet_t * NccPacket );
 extern void tcp_dispatch_io_event( packet_t * packet, NTSTATUS status );
-extern void tcp_shutdwon_by_packet( packet_t * packet );
+extern void tcp_shutdown_by_packet( packet_t * packet );
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static char __so_protocol_initialized[kProto_MaximumId] = { 0 };
