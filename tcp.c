@@ -638,7 +638,6 @@ void tcp_dispatch_io_send( packet_t *packet )
 
 	/* reduce the pending count(to zero) on this link */
 	EnterCriticalSection(&ncb->tcp_sender_locker_);
-	assert(1 == ncb->tcp_sender_pending_count_);
 	--ncb->tcp_sender_pending_count_;
 	LeaveCriticalSection(&ncb->tcp_sender_locker_);
 	
