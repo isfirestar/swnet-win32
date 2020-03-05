@@ -847,7 +847,9 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 void tcp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 {
-	if ( !packet ) return;
+	if (!packet) {
+		return;
+	}
 
 	if ( !NT_SUCCESS( status ) ) {
 		tcp_dispatch_io_exception( packet, status );

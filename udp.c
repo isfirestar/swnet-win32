@@ -588,8 +588,13 @@ void __stdcall udp_release_grp( packet_grp_t *grp )
 {
 	int i;
 
-	if ( !grp ) return;
-	if ( grp->Count <= 0 ) return;
+	if (!grp) {
+		return;
+	}
+
+	if (grp->Count <= 0) {
+		return;
+	}
 
 	for ( i = 0; i < grp->Count; i++ ) {
 		if ( !grp->Items[i].Data ) break;
