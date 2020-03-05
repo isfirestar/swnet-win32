@@ -43,9 +43,9 @@ typedef struct _NCC_NETWORK_BASIC_CONTROL_BLCOK
 	};
 	struct {
 		struct list_head		tcp_sender_cache_head_;		/* TCP sender control and traffic manager */
-		int						tcp_sender_cached_count_;	/* the count of packet pending in @tcp_sender_cache_head_ */
-		CRITICAL_SECTION		tcp_sender_locker_;			/* lock element: @tcp_sender_cache_head_ and @tcp_sender_cached_count_*/
-		int						tcp_sender_pending_count_;	/* the total pending count on this link */
+		int						tcp_sender_list_size_;	/* the count of packet pending in @tcp_sender_cache_head_ */
+		CRITICAL_SECTION		tcp_sender_locker_;			/* lock element: @tcp_sender_cache_head_ and @tcp_sender_list_size_*/
+		int						tcp_write_pending_;	/* the total pending count on this link */
 		tst_t					tcp_tst_;					/* protocol template on this link */
 		int						mss;						/* MSS of tcp link */
 	};

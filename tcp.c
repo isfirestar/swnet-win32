@@ -97,9 +97,12 @@ int tcprefr(objhld_t hld, ncb_t **ncb)
 	return -ENOENT;
 }
 
-
-static
-int tcp_try_write( ncb_t * ncb )
+/*
+ * definition of return value:
+ * -1 : the calling thread has responsibility to free the memory of @packet when @packet is not a NULL pointer
+ *  0 : @packet MUST NOT free
+ */
+static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 {
 	packet_t *next_packet;
 	int retval;
@@ -108,28 +111,65 @@ int tcp_try_write( ncb_t * ncb )
 		return -1;
 	}
 
-	retval = -1;
-	EnterCriticalSection( &ncb->tcp_sender_locker_ );
+	do {
+		retval = -1;
+		next_packet = NULL;
 
-	if (!list_empty(&ncb->tcp_sender_cache_head_)) {
+		EnterCriticalSection( &ncb->tcp_sender_locker_ );
 
-		if ( 0 == ncb->tcp_sender_pending_count_ ) {
-			next_packet = list_first_entry(&ncb->tcp_sender_cache_head_, packet_t, pkt_lst_entry_);
-			list_del_init(&next_packet->pkt_lst_entry_);
+		/* user specify the definite packet buffer pointer,
+			but, current queue is not empty, it MUST add the packet to the tail of queue and pop the head element to send */
+		if (packet) {
+			/* examine the cached count, it MUST less than the restrict */
+			if ( InterlockedIncrement((volatile LONG *)&ncb->tcp_sender_list_size_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK ) {
+				InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_list_size_);
+				nis_call_ecr("[nshost.tcp.tcp_try_write] pre-sent cache overflow, link:%I64d", ncb->hld);
+				break;
+			}
 
-			/* while error occur without IO_PENDING, the IOCP routine will not be trigger,
-				nshost module consider this is a unhandleable error and the TCP like will be disconnect immediately.
-				@tcp_shutdown_by_packet routine should release the owner memory save in @next_packet */
-			if ((retval = asio_tcp_send(next_packet)) < 0) {
-				tcp_shutdown_by_packet(next_packet);
-			} else {
-				++ncb->tcp_sender_pending_count_;
+			/* increase the cached count and than push item into the tail of queue */
+			list_add_tail(&packet->pkt_lst_entry_, &ncb->tcp_sender_cache_head_);
+		} else {
+			/* current queue cached nothing, or, all data have been sent */
+			if (list_empty(&ncb->tcp_sender_cache_head_)) {
+				break;
 			}
 		}
-	}
+
+		/* from now on, @packet MUST NOT free */
+		retval = 0; 
+
+		/* another asynchronous operations may be in progress,
+			double check to estimate whether the opportunity of send is right */
+		while (InterlockedIncrement((volatile LONG *)&ncb->tcp_write_pending_) > 1) {
+			if (InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_) > 0) {
+				LeaveCriticalSection(&ncb->tcp_sender_locker_);
+				return 0;
+			}
+		}
+
+		/* the next packet should be remove from queue */
+		next_packet = list_first_entry(&ncb->tcp_sender_cache_head_, packet_t, pkt_lst_entry_);
+		list_del_init(&next_packet->pkt_lst_entry_);
+		/* cache count canbe decrease immediately */
+		InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_list_size_);
+	} while(0);
 
 	LeaveCriticalSection( &ncb->tcp_sender_locker_ );
-	return retval;
+
+	/* no any packet are in queue now */
+	if (!next_packet) {
+		return retval;
+	}
+
+	/* while error occur without IO_PENDING, the IOCP routine will not be trigger,
+		nshost module consider this is a unhandleable error and the TCP link will be disconnect immediately.
+		@tcp_shutdown_by_packet routine should release the owner memory save in @next_packet */
+	if (asio_tcp_send(next_packet) < 0) {
+		tcp_shutdown_by_packet(next_packet);
+	}
+
+	return 0; /* @packet MUST NOT free */
 }
 
 static
@@ -347,8 +387,8 @@ int tcp_entry( objhld_t h, ncb_t * ncb, const void * ctx )
 		// 描述每个链接上的TCP下级缓冲区大小
 		InitializeCriticalSection(&ncb->tcp_sender_locker_);
 		INIT_LIST_HEAD(&ncb->tcp_sender_cache_head_);
-		ncb->tcp_sender_cached_count_ = 0;
-		ncb->tcp_sender_pending_count_ = 0;
+		ncb->tcp_sender_list_size_ = 0;
+		ncb->tcp_write_pending_ = 0;
 
 		// 如果是远程连接得到的ncb_t, 操作到此完成
 		if ( init_ctx->is_remote_ ) {
@@ -411,7 +451,7 @@ void tcp_unload( objhld_t h, void * user_buffer )
 	ncb_unmark_lb( ncb );
 
 	// 取消所有等待发送的包链
-	InterlockedExchange((volatile LONG *)&ncb->tcp_sender_cached_count_, 0);
+	InterlockedExchange((volatile LONG *)&ncb->tcp_sender_list_size_, 0);
 	EnterCriticalSection( &ncb->tcp_sender_locker_ );
 	while (!list_empty(&ncb->tcp_sender_cache_head_)) {
 		packet = list_first_entry( &ncb->tcp_sender_cache_head_, packet_t, pkt_lst_entry_ );
@@ -633,16 +673,11 @@ void tcp_dispatch_io_send( packet_t *packet )
 		return;
 	}
 
-	/* reduce the total cache item count on current link */
-	InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
-
 	/* reduce the pending count(to zero) on this link */
-	EnterCriticalSection(&ncb->tcp_sender_locker_);
-	--ncb->tcp_sender_pending_count_;
-	LeaveCriticalSection(&ncb->tcp_sender_locker_);
+	InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
 	
 	/* next write request MUST later than pending count decrease */
-	tcp_try_write( ncb );
+	tcp_try_write( ncb, NULL );
 
 	/* release the packet buffer */
 	freepkt( packet );
@@ -797,18 +832,13 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 			break;
 		}
 
-		/* reduce the refers counter,allow next @tcp_write call */
-		InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
-
 		/* reduce pending packet count in current ncb context */
-		EnterCriticalSection(&ncb->tcp_sender_locker_);
-		--ncb->tcp_sender_pending_count_;
-		LeaveCriticalSection(&ncb->tcp_sender_locker_);
+		InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
 		
 		/* release the current package */
 		freepkt(packet);
 		/* try post next package */
-		tcp_try_write(ncb);
+		tcp_try_write(ncb, NULL);
 	} while (0);
 
 	objdefr(ncb->hld);
@@ -1188,22 +1218,23 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	ncb = NULL;
 	buffer = NULL;
 	packet = NULL;
+	retval = -1;
 
 	if ( tcprefr(lnk, &ncb) < 0 ) {
 		nis_call_ecr("[nshost.tcp.tcp_write] failed reference object, link:%I64d", lnk);
 		return -ENOENT;
 	}
-
-	retval = -1;
+	
 	do {
-		if (InterlockedIncrement((volatile LONG *)&ncb->tcp_sender_cached_count_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
+		/* shift check cached count */
+		if (InterlockedExchangeAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
 			nis_call_ecr("[nshost.tcp.tcp_write] pre-sent cache overflow, link:%I64d", lnk);
 			break;
 		}
 
 		if ((!ncb->tcp_tst_.builder_) || (ncb->attr & LINKATTR_TCP_NO_BUILD)) {
-			total_packet_length = cb;
-			// 没有指定下层协议的构建例程，则认为传入数据已经完成了下层协议的构建
+			total_packet_length = cb;	                                   
+			/* the protocol builder are not specified, @tcp_write proc has responsibility to fill the packet buffer */
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
 				break;
 			}
@@ -1221,7 +1252,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 				break;
 			}
 
-			// 协议构建例程负责构建协议头
+			/* pass the buffer to the protocol builder */
 			if (ncb->tcp_tst_.builder_(buffer, cb) < 0) {
 				break;
 			}
@@ -1235,29 +1266,25 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 			}
 		}
 
-		// 分配包
+		/* allocate the package */
 		if ( allocate_packet( ( objhld_t ) lnk, kProto_TCP, kSend, 0, kNoAccess, &packet ) < 0 ) {
 			break;
 		}
-
 		packet->ori_buffer_ = packet->irp_ = buffer;
 		packet->size_for_req_ = total_packet_length;
-
-		// 将包加入待发送队列中
-		EnterCriticalSection( &ncb->tcp_sender_locker_ );
-		list_add_tail( &packet->pkt_lst_entry_, &ncb->tcp_sender_cache_head_ );
-		LeaveCriticalSection( &ncb->tcp_sender_locker_ );
-
-		// 自由判断是否投递异步请求的合适时机
-		tcp_try_write(ncb);
-		retval = 0;
+		
+		/* try to write this packet to network adpater or cache it into low-level queue */
+		if ( (retval = tcp_try_write(ncb, packet) ) < 0) {
+			freepkt( packet );
+			packet = NULL;
+			buffer = NULL;
+		}
 	} while ( FALSE );
 
-	if ( retval < 0 ) {
-		// 抬高计数后未能正确插入缓冲队列
-		InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_cached_count_);
-		if ( buffer ) {
-			free( buffer );
+	if (retval < 0) {
+		if (buffer) {
+			free(buffer);
+			buffer = NULL;
 		}
 	}
 
