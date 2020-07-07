@@ -36,11 +36,13 @@ EXPORTS
 	udp_getaddr
 	udp_setopt
 	udp_getopt
+	udp_joingrp
+	udp_dropgrp
 	udp_initialize_grp
+	udp_release_grp
 	udp_raise_grp
 	udp_detach_grp
 	udp_write_grp
-	udp_release_grp
 
 	arp_create
 	arp_destroy
@@ -71,8 +73,10 @@ EXPORTS
 	vfn1a_h64
 	crc32
 	sha256
-	base64__encode
-	base64__decode
+	base64_encode_len
+	base64_encode
+	base64_decode_len
+	base64_decode
 	MD5__Init
 	MD5__Update
 	MD5__Final
