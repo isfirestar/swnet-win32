@@ -113,7 +113,8 @@
       <AdditionalDependencies>
       </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
@@ -147,7 +148,8 @@
       <AdditionalDependencies>
       </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
@@ -184,7 +186,8 @@
       </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
@@ -222,7 +225,8 @@
       </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
@@ -275,9 +279,6 @@
     <ClInclude Include="os.h" />
     <ClInclude Include="packet.h" />
     <ClInclude Include="resource.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="nshost.def" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="nshost.rc" />
