@@ -74,6 +74,17 @@ void so_uninit( enum proto_type_t ProtoType )
 	WSACleanup();
 }
 
+static void so_dispatch_pipe_event(packet_t *packet, NTSTATUS status)
+{
+	ncb_t *ncb;
+
+	ncb = objrefr(packet->link);
+	if (ncb) {
+		ncb_post_pipedata(ncb, packet->size_for_translation_, packet->ori_buffer_);
+	}
+	freepkt(packet);
+}
+
 void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 {
 	packet_t *	packet = ( packet_t * ) pOvlp;
@@ -96,6 +107,9 @@ void so_dispatch_io_event( OVERLAPPED *pOvlp, int transfer_bytes )
 			break;
 		case kProto_TCP:
 			tcp_dispatch_io_event( packet, status );
+			break;
+		case kProto_PIPE:
+			so_dispatch_pipe_event( packet, status );
 			break;
 		default:
 			nis_call_ecr( "[nshost.network.so_dispatch_io_event] unknown packet protocol type %u dispatch to network.", packet->proto_type );

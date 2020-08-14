@@ -105,8 +105,11 @@ void ncb_post_close(const ncb_t *ncb);
 extern
 void ncb_post_recvdata(const ncb_t *ncb, int cb, const unsigned char *data);
 extern
+void ncb_post_pipedata(const ncb_t *ncb, int cb, const unsigned char *data);
+extern
 void ncb_post_accepted(const ncb_t *ncb, HTCPLINK link);
 extern
 void ncb_post_connected(const ncb_t *ncb);
+
 
 #endif

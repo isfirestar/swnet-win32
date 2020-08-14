@@ -196,3 +196,8 @@ void iouninit()
 	free(epmgr.epos);
 	epmgr.epos = NULL;
 }
+
+void *io_get_pipefd(void *ncbptr)
+{
+	return epmgr.epos[((ncb_t *)ncbptr)->hld % epmgr.divisions].epfd;
+}

@@ -113,8 +113,7 @@
       <AdditionalDependencies>
       </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>
-      </ModuleDefinitionFile>
+      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
@@ -148,8 +147,7 @@
       <AdditionalDependencies>
       </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>
-      </ModuleDefinitionFile>
+      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
@@ -186,8 +184,7 @@
       </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
-      <ModuleDefinitionFile>
-      </ModuleDefinitionFile>
+      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
@@ -225,8 +222,7 @@
       </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
-      <ModuleDefinitionFile>
-      </ModuleDefinitionFile>
+      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
@@ -282,6 +278,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="nshost.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="nshost.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

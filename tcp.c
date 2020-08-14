@@ -1205,6 +1205,48 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	return retval;
 }
 
+int __stdcall tcp_write_pipe(HUDPLINK link, const void *pipedata, int cb)
+{
+	ncb_t *ncb;
+	packet_t *packet;
+	unsigned char *buffer;
+	void *epfd;
+
+	ncb = (ncb_t *)objrefr(link);
+	if (!ncb) {
+		nis_call_ecr("[nshost.udp.udp_write_pipe] fail to reference link:%I64d", link);
+		return -ENOENT;
+	}
+
+	buffer = NULL;
+
+	do {
+		if (cb > 0 && pipedata) {
+			buffer = (unsigned char *)malloc(cb);
+			if (!buffer) {
+				break;
+			}
+		}
+
+		if (allocate_packet((objhld_t)link, kProto_PIPE, kPipe, 0, kNoAccess, &packet) < 0) {
+			break;
+		}
+		packet->link = link;
+		packet->ori_buffer_ = buffer;
+		memcpy(buffer, pipedata, cb);
+
+		epfd = io_get_pipefd(ncb);
+		PostQueuedCompletionStatus(epfd, cb, 0, &packet->overlapped_);
+		return 0;
+	} while (0);
+
+	if (buffer) {
+		free(buffer);
+	}
+
+	return -1;
+}
+
 int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_serializer_t serializer)
 {
 	char *buffer;
