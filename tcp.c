@@ -1219,8 +1219,14 @@ int __stdcall tcp_write_pipe(HUDPLINK link, const void *pipedata, int cb)
 	}
 
 	buffer = NULL;
+	packet = NULL;
 
 	do {
+		epfd = io_get_pipefd(ncb);
+		if (!epfd) {
+			break;
+		}
+
 		if (cb > 0 && pipedata) {
 			buffer = (unsigned char *)malloc(cb);
 			if (!buffer) {
@@ -1234,14 +1240,19 @@ int __stdcall tcp_write_pipe(HUDPLINK link, const void *pipedata, int cb)
 		packet->link = link;
 		packet->ori_buffer_ = buffer;
 		memcpy(buffer, pipedata, cb);
-
-		epfd = io_get_pipefd(ncb);
-		PostQueuedCompletionStatus(epfd, cb, 0, &packet->overlapped_);
+		
+		if (!PostQueuedCompletionStatus(epfd, cb, 0, &packet->overlapped_)) {
+			break;
+		}
 		return 0;
 	} while (0);
 
-	if (buffer) {
-		free(buffer);
+	if (packet) {
+		freepkt(packet);
+	} else {
+		if (buffer) {
+			free(buffer);
+		}
 	}
 
 	return -1;
