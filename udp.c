@@ -414,7 +414,7 @@ int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const 
 	return 0;
 }
 
-int __stdcall udp_write_pipe(HUDPLINK link, const void *pipedata, int cb)
+int __stdcall udp_awaken(HUDPLINK link, const void *pipedata, int cb)
 {
 	ncb_t *ncb;
 	packet_t *packet;

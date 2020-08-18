@@ -1205,7 +1205,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	return retval;
 }
 
-int __stdcall tcp_write_pipe(HUDPLINK link, const void *pipedata, int cb)
+int __stdcall tcp_awaken(HUDPLINK link, const void *pipedata, int cb)
 {
 	ncb_t *ncb;
 	packet_t *packet;
