@@ -76,7 +76,7 @@ int get_eth_MAC(const char *ip, unsigned char mac[6])
 	return -1;
 }
 
-HARPLINK __stdcall arp_create(arp_io_callback_t callback, const char *source)
+PORTABLEIMPL(HARPLINK) arp_create(arp_io_callback_t callback, const char *source)
 {
 	SOCKET fd;
 	HARPLINK hld;
@@ -108,7 +108,7 @@ HARPLINK __stdcall arp_create(arp_io_callback_t callback, const char *source)
 	return hld;
 }
 
-void __stdcall arp_destroy(HARPLINK link)
+PORTABLEIMPL(void) arp_destroy(HARPLINK link)
 {
 	ncb_t *ncb;
 
@@ -121,7 +121,7 @@ void __stdcall arp_destroy(HARPLINK link)
 	}
 }
 
-int __stdcall arp_nrequest(HARPLINK link, uint32_t target)
+PORTABLEIMPL(int) arp_nrequest(HARPLINK link, uint32_t target)
 {
 	int retval;
 	ncb_t *ncb;
@@ -160,7 +160,7 @@ int __stdcall arp_nrequest(HARPLINK link, uint32_t target)
 	return posix__makeerror(retval);
 }
 
-int __stdcall arp_request(HARPLINK link, const char *target)
+PORTABLEIMPL(int) arp_request(HARPLINK link, const char *target)
 {
 	return arp_nrequest(link, inet_addr(target));
 }

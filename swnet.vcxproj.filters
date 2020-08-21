@@ -58,6 +58,9 @@
     <ClCompile Include="arp.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\libnsp\com\cfifo.c">
+      <Filter>com</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="packet.h">
@@ -126,6 +129,9 @@
     <ClInclude Include="resource.h">
       <Filter>Resource Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\libnsp\icom\cfifo.h">
+      <Filter>icom</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
@@ -148,10 +154,5 @@
     <ResourceCompile Include="nshost.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="nshost.def">
-      <Filter>Resource Files</Filter>
-    </None>
   </ItemGroup>
 </Project>

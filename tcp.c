@@ -923,17 +923,17 @@ void tcp_shutdown_by_packet( packet_t * packet )
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int __stdcall tcp_init()
+PORTABLEIMPL(int) tcp_init()
 {
 	return so_init( kProto_TCP, 0 );
 }
 
-void __stdcall tcp_uninit()
+PORTABLEIMPL(void) tcp_uninit()
 {
 	so_uninit( kProto_TCP );
 }
 
-int __stdcall tcp_settst( HTCPLINK lnk, const tst_t *tst )
+PORTABLEIMPL(int) tcp_settst( HTCPLINK lnk, const tst_t *tst )
 {
 	ncb_t *ncb;
 
@@ -980,7 +980,7 @@ int tcp_settst_r(HTCPLINK link, tst_t *tst)
 	return retval;
 }
 
-int __stdcall tcp_gettst( HTCPLINK lnk, tst_t *tst )
+PORTABLEIMPL(int) tcp_gettst( HTCPLINK lnk, tst_t *tst )
 {
 	ncb_t *ncb;
 
@@ -1022,7 +1022,7 @@ int tcp_gettst_r(HTCPLINK link, tst_t *tst, tst_t *previous)
 	return retval;
 }
 
-HTCPLINK __stdcall tcp_create( tcp_io_callback_t user_callback, const char* l_ipstr, uint16_t l_port )
+PORTABLEIMPL(HTCPLINK) tcp_create(tcp_io_callback_t user_callback, const char* l_ipstr, uint16_t l_port)
 {
 	tcp_cinit_t ctx;
 
@@ -1051,7 +1051,7 @@ HTCPLINK __stdcall tcp_create( tcp_io_callback_t user_callback, const char* l_ip
  * 对象销毁操作有可能是希望中断某些阻塞操作， 如 connect
  * 故将销毁行为调整为直接关闭描述符后， 通过智能指针销毁对象
  */
-void __stdcall tcp_destroy( HTCPLINK lnk )
+PORTABLEIMPL(void) tcp_destroy( HTCPLINK lnk )
 {
 	ncb_t *ncb;
 
@@ -1064,7 +1064,7 @@ void __stdcall tcp_destroy( HTCPLINK lnk )
 	}
 }
 
-int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
+PORTABLEIMPL(int) tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 {
 	ncb_t *ncb;
 	struct sockaddr_in r_addr;
@@ -1129,7 +1129,7 @@ int __stdcall tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port )
 	return -1;
 }
 
-int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
+PORTABLEIMPL(int) tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 {
 	ncb_t *ncb;
 	packet_t * packet = NULL;
@@ -1168,7 +1168,7 @@ int __stdcall tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 	return -1;
 }
 
-int __stdcall tcp_listen( HTCPLINK lnk, int block )
+PORTABLEIMPL(int) tcp_listen( HTCPLINK lnk, int block )
 {
 	ncb_t *ncb;
 	int retval;
@@ -1205,7 +1205,7 @@ int __stdcall tcp_listen( HTCPLINK lnk, int block )
 	return retval;
 }
 
-int __stdcall tcp_awaken(HUDPLINK link, const void *pipedata, int cb)
+PORTABLEIMPL(int) tcp_awaken(HUDPLINK link, const void *pipedata, int cb)
 {
 	ncb_t *ncb;
 	packet_t *packet;
@@ -1258,7 +1258,7 @@ int __stdcall tcp_awaken(HUDPLINK link, const void *pipedata, int cb)
 	return -1;
 }
 
-int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_serializer_t serializer)
+PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_serializer_t serializer)
 {
 	char *buffer;
 	ncb_t *ncb;
@@ -1347,7 +1347,7 @@ int __stdcall tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_seri
 	return retval;
 }
 
-int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *port )
+PORTABLEIMPL(int) tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *port )
 {
 	ncb_t * ncb;
 	int retval;
@@ -1380,7 +1380,7 @@ int __stdcall tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *po
 	return retval;
 }
 
-int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int len )
+PORTABLEIMPL(int) tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int len )
 {
 	ncb_t * ncb;
 	int retval = -1;
@@ -1405,7 +1405,7 @@ int __stdcall tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val, int
 	return retval;
 }
 
-int __stdcall tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *len )
+PORTABLEIMPL(int) tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, int *len )
 {
 	ncb_t * ncb;
 	int retval = -1;
@@ -1483,7 +1483,7 @@ int tcp_get_nodelay(ncb_t *ncb, int *set)
     return -EINVAL;
 }
 
-int __stdcall tcp_setattr(HTCPLINK lnk, int attr, int enable) 
+PORTABLEIMPL(int) tcp_setattr(HTCPLINK lnk, int attr, int enable) 
 {
 	ncb_t *ncb;
 	int retval;
@@ -1509,7 +1509,7 @@ int __stdcall tcp_setattr(HTCPLINK lnk, int attr, int enable)
 	return retval;
 }
 
-int __stdcall tcp_getattr(HTCPLINK lnk, int attr, int *enabled) 
+PORTABLEIMPL(int) tcp_getattr(HTCPLINK lnk, int attr, int *enabled) 
 {
 	ncb_t *ncb;
 	int retval;

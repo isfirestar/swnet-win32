@@ -326,12 +326,12 @@ void udp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int __stdcall udp_init()
+PORTABLEIMPL(int) udp_init()
 {
 	return so_init( kProto_UDP, 0 );
 }
 
-HUDPLINK __stdcall udp_create( udp_io_callback_t user_callback, const char* l_ipstr, uint16_t l_port, int flag )
+PORTABLEIMPL(HUDPLINK) udp_create( udp_io_callback_t user_callback, const char* l_ipstr, uint16_t l_port, int flag )
 {
 	objhld_t h;
 	udp_cinit_t ctx;
@@ -414,7 +414,7 @@ int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const 
 	return 0;
 }
 
-int __stdcall udp_awaken(HUDPLINK link, const void *pipedata, int cb)
+PORTABLEIMPL(int) udp_awaken(HUDPLINK link, const void *pipedata, int cb)
 {
 	ncb_t *ncb;
 	packet_t *packet;
@@ -467,7 +467,7 @@ int __stdcall udp_awaken(HUDPLINK link, const void *pipedata, int cb)
 	return -1;
 }
 
-int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_ipstr, uint16_t r_port, const nis_serializer_t serializer)
+PORTABLEIMPL(int) udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_ipstr, uint16_t r_port, const nis_serializer_t serializer)
 {
 	int retval;
 	ncb_t *ncb;
@@ -512,7 +512,7 @@ int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_
 	return retval;
 }
 
-void __stdcall udp_destroy( HUDPLINK lnk )
+PORTABLEIMPL(void) udp_destroy( HUDPLINK lnk )
 {
 	ncb_t *ncb;
 
@@ -525,12 +525,12 @@ void __stdcall udp_destroy( HUDPLINK lnk )
 	}
 }
 
-void __stdcall udp_uninit()
+PORTABLEIMPL(void) udp_uninit()
 {
 	so_uninit( kProto_UDP );
 }
 
-int __stdcall udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
+PORTABLEIMPL(int) udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
 {
 	ncb_t * ncb;
 
@@ -549,7 +549,7 @@ int __stdcall udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_output )
 	return -1;
 }
 
-int __stdcall udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int len )
+PORTABLEIMPL(int) udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int len )
 {
 	ncb_t * ncb;
 	int retval = -1;
@@ -568,7 +568,7 @@ int __stdcall udp_setopt( HUDPLINK lnk, int level, int opt, const char *val, int
 	return retval;
 }
 
-int __stdcall udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len )
+PORTABLEIMPL(int) udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len )
 {
 	ncb_t *ncb;
 	int retval = -1;
@@ -588,7 +588,7 @@ int __stdcall udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *len 
 	return retval;
 }
 
-int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
+PORTABLEIMPL(int) udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 {
 	ncb_t *ncb;
 	int retval = -1;
@@ -637,7 +637,7 @@ int __stdcall udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 	return retval;
 }
 
-void __stdcall udp_release_grp( packet_grp_t *grp )
+PORTABLEIMPL(void) udp_release_grp( packet_grp_t *grp )
 {
 	int i;
 
@@ -656,7 +656,7 @@ void __stdcall udp_release_grp( packet_grp_t *grp )
 	}
 }
 
-int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port )
+PORTABLEIMPL(int) udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port )
 {
 	ncb_t *ncb;
 	int retval;
@@ -698,7 +698,7 @@ int __stdcall udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_port 
 	return retval;
 }
 
-void __stdcall udp_detach_grp( HUDPLINK lnk )
+PORTABLEIMPL(void) udp_detach_grp( HUDPLINK lnk )
 {
 	ncb_t * ncb;
 
@@ -714,7 +714,7 @@ void __stdcall udp_detach_grp( HUDPLINK lnk )
 	objdefr( ncb->hld );
 }
 
-int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
+PORTABLEIMPL(int) udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 {
 	ncb_t *ncb;
 	packet_t *packet;
@@ -764,7 +764,7 @@ int __stdcall udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 	return retval;
 }
 
-int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) 
+PORTABLEIMPL(int) udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port) 
 {
     ncb_t *ncb;
     objhld_t hld = (objhld_t) lnk;
@@ -814,7 +814,7 @@ int __stdcall udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port)
     return retval;
 }
 
-int __stdcall udp_dropgrp(HUDPLINK lnk)
+PORTABLEIMPL(int) udp_dropgrp(HUDPLINK lnk)
 {
     ncb_t *ncb;
     objhld_t hld = (objhld_t) lnk;

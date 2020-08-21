@@ -19,7 +19,7 @@ int tcp_gettst_r(HTCPLINK link, tst_t *tst, tst_t *previous);
 	The default destination can be changed by simply calling WSAConnect again, even if the socket is already connected.
 	Any datagrams queued for receipt are discarded if name is different from the previous WSAConnect.
 	--*/
-int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
+PORTABLEIMPL(int) nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 {
 	ncb_t *ncb;
 	int retval;
@@ -64,7 +64,7 @@ int __stdcall nis_setctx( HLNK lnk, void * ncb_ctx, int ncb_ctx_size )
 	return retval;
 }
 
-int __stdcall nis_getctx( HLNK lnk, void * user_context, int *user_context_size )
+PORTABLEIMPL(int) nis_getctx( HLNK lnk, void * user_context, int *user_context_size )
 {
 	ncb_t * ncb;
 
@@ -84,7 +84,7 @@ int __stdcall nis_getctx( HLNK lnk, void * user_context, int *user_context_size 
 	return 0;
 }
 
-void *__stdcall nis_refctx( HLNK lnk, int *user_context_size )
+PORTABLEIMPL(void *) nis_refctx( HLNK lnk, int *user_context_size )
 {
 	ncb_t * ncb;
 	void *ctxptr = NULL;
@@ -103,7 +103,7 @@ void *__stdcall nis_refctx( HLNK lnk, int *user_context_size )
 	return ctxptr;
 }
 
-int __stdcall nis_ctxsize( HLNK lnk )
+PORTABLEIMPL(int) nis_ctxsize( HLNK lnk )
 {
 	ncb_t * ncb;
 	long size;
@@ -118,7 +118,7 @@ int __stdcall nis_ctxsize( HLNK lnk )
 	return size;
 }
 
-int __stdcall nis_getver( swnet_version_t  *version )
+PORTABLEIMPL(int) nis_getver( swnet_version_t  *version )
 {
 	if (!version) {
 		return -1;
@@ -130,7 +130,7 @@ int __stdcall nis_getver( swnet_version_t  *version )
 	return 0;
 }
 
-int __stdcall nis_gethost( const char *name, uint32_t *ipv4 ) 
+PORTABLEIMPL(int) nis_gethost( const char *name, uint32_t *ipv4 ) 
 {
 
 	struct hostent *remote;
@@ -173,7 +173,7 @@ int __stdcall nis_gethost( const char *name, uint32_t *ipv4 )
 	return 0;
 }
 
-char * __stdcall nis_lgethost( char *name, int cb ) 
+PORTABLEIMPL(char *) nis_lgethost(char *name, int cb)
 {
 	if ( !name || cb <= 0 ) {
 		return NULL;
@@ -188,7 +188,7 @@ char * __stdcall nis_lgethost( char *name, int cb )
 /* manage ECR and it's calling */
 static nis_event_callback_t current_ecr = NULL;
 
-nis_event_callback_t __stdcall nis_checr( const nis_event_callback_t ecr ) 
+PORTABLEIMPL(nis_event_callback_t) nis_checr(const nis_event_callback_t ecr)
 {
 	if ( !ecr ) {
 		InterlockedExchangePointer( (volatile PVOID *)&current_ecr, NULL );
@@ -222,7 +222,7 @@ void nis_call_ecr( const char *fmt, ... )
 	}
 }
 
-int __stdcall nis_setmask(HTCPLINK lnk, int mask)
+PORTABLEIMPL(int) nis_setmask(HTCPLINK lnk, int mask)
 {
 	ncb_t *ncb;
 	objhld_t hld = (objhld_t)lnk;
@@ -238,7 +238,7 @@ int __stdcall nis_setmask(HTCPLINK lnk, int mask)
 	return 0;
 }
 
-int __stdcall nis_getmask(HTCPLINK lnk, int *mask)
+PORTABLEIMPL(int) nis_getmask(HTCPLINK lnk, int *mask)
 {
 	ncb_t *ncb;
 	objhld_t hld = (objhld_t)lnk;
@@ -256,7 +256,7 @@ int __stdcall nis_getmask(HTCPLINK lnk, int *mask)
 	return 0;
 }
 
-int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv) 
+PORTABLEIMPL(int) nis_getifmisc(ifmisc_t *ifv, int *cbifv) 
 {
 	ULONG dwRetVal, outBufLen;
 	PIP_ADAPTER_INFO pCurrAddresses, pAddresses;
@@ -324,7 +324,7 @@ int __stdcall nis_getifmisc(ifmisc_t *ifv, int *cbifv)
 	return 0;
 }
 
-int __stdcall nis_cntl(objhld_t link, int cmd, ...)
+PORTABLEIMPL(int) nis_cntl(objhld_t link, int cmd, ...)
 {
 	ncb_t *ncb;
 	int retval;

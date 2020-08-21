@@ -113,7 +113,8 @@
       <AdditionalDependencies>
       </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
@@ -185,7 +186,8 @@
       </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
-      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
@@ -235,6 +237,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\libnsp\com\avltree.c" />
+    <ClCompile Include="..\libnsp\com\cfifo.c" />
     <ClCompile Include="..\libnsp\com\hash.c" />
     <ClCompile Include="..\libnsp\com\logger.c" />
     <ClCompile Include="..\libnsp\com\object.c" />
@@ -256,6 +259,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\libnsp\icom\avltree.h" />
+    <ClInclude Include="..\libnsp\icom\cfifo.h" />
     <ClInclude Include="..\libnsp\icom\clist.h" />
     <ClInclude Include="..\libnsp\icom\compiler.h" />
     <ClInclude Include="..\libnsp\icom\hash.h" />
@@ -280,9 +284,6 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="nshost.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="nshost.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
