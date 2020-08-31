@@ -9,6 +9,7 @@ enum proto_type_t {
 	kProto_IP,
 	kProto_UDP,
 	kProto_TCP,
+	kProto_PIPE,
 	kProto_MaximumId
 };
 

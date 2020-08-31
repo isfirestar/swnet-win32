@@ -9,5 +9,7 @@ extern
 int ioatth(void *ncbptr);
 extern
 void ioclose(void *ncbptr);
+extern
+void *io_get_pipefd(void *ncbptr);
 
 #endif

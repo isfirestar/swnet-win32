@@ -249,6 +249,22 @@ void ncb_post_recvdata(const ncb_t *ncb, int cb, const unsigned char *data)
 	}
 }
 
+void ncb_post_pipedata(const ncb_t *ncb, int cb, const unsigned char *data)
+{
+	nis_event_t c_event;
+	tcp_data_t c_data;
+
+	if (ncb) {
+		if (ncb->nis_callback) {
+			c_event.Ln.Tcp.Link = (HTCPLINK)ncb->hld;
+			c_event.Event = EVT_PIPEDATA;
+			c_data.e.Packet.Size = cb;
+			c_data.e.Packet.Data = data;
+			ncb->nis_callback(&c_event, &c_data);
+		}
+	}
+}
+
 void ncb_post_accepted(const ncb_t *ncb, HTCPLINK link) 
 {
 	nis_event_t c_event;

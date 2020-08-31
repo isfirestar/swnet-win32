@@ -95,7 +95,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;_DEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)..\libnsp\icom;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile />
       <PrecompiledHeaderOutputFile />
@@ -113,7 +113,7 @@
       <AdditionalDependencies>
       </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
@@ -128,7 +128,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;_DEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)..\libnsp\icom;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
@@ -147,7 +147,8 @@
       <AdditionalDependencies>
       </AdditionalDependencies>
       <ProgramDatabaseFile>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\$(ProjectName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
@@ -164,7 +165,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)..\libnsp\icom;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <PrecompiledHeaderFile />
@@ -184,7 +185,7 @@
       </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>nshost.def</ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
@@ -202,7 +203,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;_USRDLL;SWNET_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)..\libnsp\icom;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <PrecompiledHeaderFile>
@@ -222,7 +223,8 @@
       </AdditionalDependencies>
       <ProgramDatabaseFile>
       </ProgramDatabaseFile>
-      <ModuleDefinitionFile>$(ProjectDir)\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).$(PlatformTarget).$(Configuration).lib</ImportLibrary>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
@@ -277,10 +279,10 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="nshost.def" />
+    <ResourceCompile Include="nshost.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="nshost.rc" />
+    <None Include="nshost.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -15,6 +15,7 @@ enum pkt_type_t {
 	kRecv,
 	kSyn,
 	kConnect,
+	kPipe,
 	kUnknown,
 };
 

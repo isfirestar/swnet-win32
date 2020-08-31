@@ -414,6 +414,59 @@ int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const 
 	return 0;
 }
 
+int __stdcall udp_awaken(HUDPLINK link, const void *pipedata, int cb)
+{
+	ncb_t *ncb;
+	packet_t *packet;
+	unsigned char *buffer;
+	void *epfd;
+
+	ncb = (ncb_t *)objrefr(link);
+	if (!ncb) {
+		nis_call_ecr("[nshost.udp.udp_write_pipe] fail to reference link:%I64d", link);
+		return -ENOENT;
+	}
+
+	buffer = NULL;
+	packet = NULL;
+
+	do {
+		epfd = io_get_pipefd(ncb);
+		if (!epfd) {
+			break;
+		}
+
+		if (cb > 0 && pipedata) {
+			buffer = (unsigned char *)malloc(cb);
+			if (!buffer) {
+				break;
+			}
+		}
+
+		if (allocate_packet((objhld_t)link, kProto_PIPE, kPipe, 0, kNoAccess, &packet) < 0) {
+			break;
+		}
+		packet->link = link;
+		packet->ori_buffer_ = buffer;
+		memcpy(buffer, pipedata, cb);
+
+		if (!PostQueuedCompletionStatus(epfd, cb, 0, &packet->overlapped_)) {
+			break;
+		}
+		return 0;
+	} while (0);
+
+	if (packet) {
+		freepkt(packet);
+	} else {
+		if (buffer) {
+			free(buffer);
+		}
+	}
+
+	return -1;
+}
+
 int __stdcall udp_write(HUDPLINK lnk, const void *origin, int cb, const char* r_ipstr, uint16_t r_port, const nis_serializer_t serializer)
 {
 	int retval;
