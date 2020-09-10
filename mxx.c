@@ -310,10 +310,10 @@ PORTABLEIMPL(int) nis_getifmisc(ifmisc_t *ifv, int *cbifv)
 	i = 0;
 	pCurrAddresses = pAddresses;
 	while (pCurrAddresses) {
-		strncpy_s(ifv[i].interface_, sizeof(ifv[i].interface_) - 1, pCurrAddresses->Description, sizeof(ifv[i].interface_) - 1);
-		ifv[i].addr_ = inet_addr(pCurrAddresses->IpAddressList.IpAddress.String);
-		ifv[i].netmask_ = inet_addr(pCurrAddresses->IpAddressList.IpMask.String);
-		ifv[i].boardcast_ = 0;
+		strncpy_s(ifv[i].interface, sizeof(ifv[i].interface) - 1, pCurrAddresses->Description, sizeof(ifv[i].interface) - 1);
+		ifv[i].inet = inet_addr(pCurrAddresses->IpAddressList.IpAddress.String);
+		ifv[i].mask = inet_addr(pCurrAddresses->IpAddressList.IpMask.String);
+		ifv[i].boardcast = 0;
 		pCurrAddresses = pCurrAddresses->Next;
 		i++;
 	}
@@ -322,6 +322,78 @@ PORTABLEIMPL(int) nis_getifmisc(ifmisc_t *ifv, int *cbifv)
 		free(pAddresses);
 	}
 	return 0;
+}
+
+
+/*
+typedef struct _IP_ADAPTER_INFO {
+struct _IP_ADAPTER_INFO *Next;
+DWORD                   ComboIndex;
+char                    AdapterName[MAX_ADAPTER_NAME_LENGTH + 4];
+char                    Description[MAX_ADAPTER_DESCRIPTION_LENGTH + 4];
+UINT                    AddressLength;
+BYTE                    Address[MAX_ADAPTER_ADDRESS_LENGTH];
+DWORD                   Index;
+UINT                    Type;
+UINT                    DhcpEnabled;
+PIP_ADDR_STRING         CurrentIpAddress;
+IP_ADDR_STRING          IpAddressList;
+IP_ADDR_STRING          GatewayList;
+IP_ADDR_STRING          DhcpServer;
+BOOL                    HaveWins;
+IP_ADDR_STRING          PrimaryWinsServer;
+IP_ADDR_STRING          SecondaryWinsServer;
+time_t                  LeaseObtained;
+time_t                  LeaseExpires;
+} IP_ADAPTER_INFO, *PIP_ADAPTER_INFO;
+*/
+PORTABLEIMPL(int) nis_getifmac(char *eth_name, unsigned char *pyhaddr)
+{
+	IP_ADAPTER_INFO adapter, *adapter_ptr, *cursor;
+	ULONG outlen, retval;
+
+	if (!eth_name || !pyhaddr) {
+		return -EINVAL;
+	}
+
+	outlen = sizeof(adapter);
+	adapter_ptr = &adapter;
+	cursor = NULL;
+
+	while (!cursor) {
+		retval = GetAdaptersInfo(adapter_ptr, &outlen);
+		switch (retval)
+		{
+		case ERROR_SUCCESS:
+			cursor = adapter_ptr;
+			break;
+		case ERROR_BUFFER_OVERFLOW:
+			if (adapter_ptr && adapter_ptr != &adapter) {
+				free(adapter_ptr);
+			}
+			adapter_ptr = (IP_ADAPTER_INFO *)malloc(outlen);
+			if (!adapter_ptr) {
+				return -ENOMEM;
+			}
+			break;
+		default:
+			return retval * -1;
+		}
+	}
+
+	while (cursor) {
+		if (0 == strcmp(eth_name, cursor->Description)) {
+			memcpy(pyhaddr, cursor->Address, 6);
+			break;
+		}
+		cursor = cursor->Next;
+	}
+
+	if (adapter_ptr && adapter_ptr != &adapter) {
+		free(adapter_ptr);
+	}
+
+	return cursor ? 0 : -ENOENT;
 }
 
 PORTABLEIMPL(int) nis_cntl(objhld_t link, int cmd, ...)
