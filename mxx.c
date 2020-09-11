@@ -310,7 +310,7 @@ PORTABLEIMPL(int) nis_getifmisc(ifmisc_t *ifv, int *cbifv)
 	i = 0;
 	pCurrAddresses = pAddresses;
 	while (pCurrAddresses) {
-		strncpy_s(ifv[i].interface, sizeof(ifv[i].interface) - 1, pCurrAddresses->Description, sizeof(ifv[i].interface) - 1);
+		strncpy_s(ifv[i].eth, sizeof(ifv[i].eth) - 1, pCurrAddresses->Description, sizeof(ifv[i].eth) - 1);
 		ifv[i].inet = inet_addr(pCurrAddresses->IpAddressList.IpAddress.String);
 		ifv[i].mask = inet_addr(pCurrAddresses->IpAddressList.IpMask.String);
 		ifv[i].boardcast = 0;
