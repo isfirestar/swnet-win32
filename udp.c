@@ -441,6 +441,7 @@ PORTABLEIMPL(int) udp_awaken(HUDPLINK link, const void *pipedata, int cb)
 			if (!buffer) {
 				break;
 			}
+			memcpy(buffer, pipedata, cb);
 		}
 
 		if (allocate_packet((objhld_t)link, kProto_PIPE, kPipe, 0, kNoAccess, &packet) < 0) {
@@ -448,8 +449,7 @@ PORTABLEIMPL(int) udp_awaken(HUDPLINK link, const void *pipedata, int cb)
 		}
 		packet->link = link;
 		packet->ori_buffer_ = buffer;
-		memcpy(buffer, pipedata, cb);
-
+		
 		if (!PostQueuedCompletionStatus(epfd, cb, 0, &packet->overlapped_)) {
 			break;
 		}

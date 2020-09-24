@@ -88,16 +88,22 @@ void freepkt( packet_t * packet )
 		case kNoAccess:
 			if ( packet->grp_packets_cnt_ > 0 && packet->grp_packets_ ) {
 				free( packet->grp_packets_ );
+				packet->grp_packets_ = NULL;
 				packet->grp_packets_cnt_ = 0;
 			} else {
-				free( packet->ori_buffer_ );
+				if (packet->ori_buffer_) {
+					free(packet->ori_buffer_);
+					packet->ori_buffer_ = NULL;
+				}
 			}
 			break;
 		case kNonPagedPool:
 			os_unlock_and_free_virtual_pages( packet->ori_buffer_, packet->size_for_req_ );
 			break;
 		case kVirtualHeap:
-			free( packet->ori_buffer_ );
+			if (packet->ori_buffer_) {
+				free(packet->ori_buffer_);
+			}
 			break;
 		default:
 			break;
