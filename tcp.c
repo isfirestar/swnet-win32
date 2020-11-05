@@ -973,9 +973,9 @@ int tcp_settst_r(HTCPLINK link, tst_t *tst)
 		return retval;
 	}
 
-	ncb->tcp_tst_.cb_ = InterlockedExchange((volatile LONG *)&ncb->tcp_tst_.cb_, tst->cb_);
-	ncb->tcp_tst_.builder_ = InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.builder_, tst->builder_);
-	ncb->tcp_tst_.parser_ = InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.parser_, tst->parser_);
+	InterlockedExchange((volatile LONG *)&ncb->tcp_tst_.cb_, tst->cb_);
+	InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.builder_, tst->builder_);
+	InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.parser_, tst->parser_);
 	objdefr(link);
 	return retval;
 }
