@@ -39,7 +39,7 @@ static DWORD WINAPI __iorun(LPVOID p)
 
 	epos = (struct epoll_object *)p;
 
-	nis_call_ecr("[nshost.io.epoll]: epfd:%d LWP:%u startup.", epos->epfd, posix__gettid());
+	mxx_call_ecr("epfd:%d LWP:%u startup.", epos->epfd, posix__gettid());
 
 	while ( TRUE ) {
 		ovlp = NULL;
@@ -70,7 +70,7 @@ static DWORD WINAPI __iorun(LPVOID p)
 		}
 	}
 
-	nis_call_ecr("[nshost.io.epoll]:epfd:%d LWP:%u terminated.", epos->epfd, posix__gettid());
+	mxx_call_ecr("epfd:%d LWP:%u terminated.", epos->epfd, posix__gettid());
 	return 0L;
 }
 
@@ -93,7 +93,7 @@ int __ioinit()
 		epmgr.epos[i].load = 0;
 		epmgr.epos[i].epfd = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, (ULONG_PTR)&iocp_complete_routine, 1);
 		if (epmgr.epos[i].epfd < 0) {
-			nis_call_ecr("[nshost.io.epoll]:file descriptor creat failed. error:%u", GetLastError());
+			mxx_call_ecr("file descriptor creat failed. error:%u", GetLastError());
 			epmgr.epos[i].actived = NO;
 			continue;
 		}
@@ -102,7 +102,7 @@ int __ioinit()
 		epmgr.epos[i].actived = YES;
 		epmgr.epos[i].thread = CreateThread(NULL, 0, &__iorun, &epmgr.epos[i], 0, &epmgr.epos[i].tid);
 		if (!epmgr.epos[i].thread) {
-			nis_call_ecr("[nshost.io.epoll]:io thread create failed. error:%u", GetLastError());
+			mxx_call_ecr("io thread create failed. error:%u", GetLastError());
 			epmgr.epos[i].actived = NO;
 		}
 	}
@@ -143,11 +143,11 @@ int ioatth(void *ncbptr)
 	epos = &epmgr.epos[ncb->hld % epmgr.divisions];
 	bind_iocp = CreateIoCompletionPort((HANDLE)ncb->sockfd, epos->epfd, (ULONG_PTR)NULL, 0);
 	if ((bind_iocp) && (bind_iocp == epos->epfd)) {
-		nis_call_ecr("[nshost.io.ioatth] success associate sockfd:%d with epfd:%d, link:%I64d", ncb->sockfd, epos->epfd, ncb->hld);
+		mxx_call_ecr("success associate sockfd:%d with epfd:%d, link:%I64d", ncb->sockfd, epos->epfd, ncb->hld);
 		return 0;
 	}
 
-	nis_call_ecr("[nshost.io.ioattach] link:%I64u syscall CreateIoCompletionPort failed, error code=%u", ncb->hld, GetLastError());
+	mxx_call_ecr("link:%I64u syscall CreateIoCompletionPort failed, error code=%u", ncb->hld, GetLastError());
 	return -1;
 }
 

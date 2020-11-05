@@ -49,7 +49,7 @@ int ncb_mark_lb( ncb_t *ncb, int cb, int current_size, void * source )
 	ncb->lb_length_ = cb;
 	ncb->lb_data_ = ( char * ) malloc( ncb->lb_length_ );
 	if ( !ncb->lb_data_ ) {
-		nis_call_ecr( "[nshost.ncb.ncb_mark_lb] fail to allocate memory for ncb->lb_data_, request size=%u", cb );
+		mxx_call_ecr("fail to allocate memory for ncb->lb_data_, request size=%u", cb);
 		return -1;
 	}
 

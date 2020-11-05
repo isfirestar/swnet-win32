@@ -43,11 +43,11 @@ uint32_t Protect
 			Protect
 			);
 		if ( NULL == MemoryBlock ) {
-			nis_call_ecr("[nshost.os.os_allocate_block] syscall VirtualAllocEx failed, error:%u", GetLastError() );
+			mxx_call_ecr("syscall VirtualAllocEx failed, error:%u", GetLastError());
 		}
 	} __except ( EXCEPTION_EXECUTE_HANDLER ) {
 		MemoryBlock = NULL;
-		nis_call_ecr("[nshost.os.os_allocate_block] failed to allocate virtual memory block, process handle:0x%08X, size:%u, exception code:0%08X",
+		mxx_call_ecr("failed to allocate virtual memory block, process handle:0x%08X, size:%u, exception code:0%08X",
 			handleProcess, blockSizeCb, GetExceptionCode() );
 	}
 
@@ -135,7 +135,7 @@ void *os_lock_virtual_pages( void * MemoryBlock, uint32_t Size )
 						PAGE_READWRITE
 						);
 					if ( NULL == MemoryBlock ) {
-						nis_call_ecr("[nshost.os.os_lock_virtual_pages] syscall VirtualAlloc failed, code:0x%08X", GetLastError() );
+						mxx_call_ecr("syscall VirtualAlloc failed, code:0x%08X", GetLastError());
 						break;
 					}
 				} __except ( EXCEPTION_EXECUTE_HANDLER ) {
@@ -168,7 +168,7 @@ void *os_lock_virtual_pages( void * MemoryBlock, uint32_t Size )
 				GetCurrentProcessId()
 				);
 			if ( INVALID_HANDLE_VALUE == handleProcess ) {
-				nis_call_ecr("[nshost.os.os_lock_virtual_pages] syscall OpenProcess failed, code:0x%08X", GetLastError() );
+				mxx_call_ecr("syscall OpenProcess failed, code:0x%08X", GetLastError());
 				break;
 			}
 		}
@@ -182,7 +182,7 @@ void *os_lock_virtual_pages( void * MemoryBlock, uint32_t Size )
 			&MaximumWorkingSetSize
 			);
 		if ( !Successful ) {
-			nis_call_ecr("[nshost.os.os_lock_virtual_pages] syscall GetProcessWorkingSetSize failed, code:0x%08X", GetLastError() );
+			mxx_call_ecr("syscall GetProcessWorkingSetSize failed, code:0x%08X", GetLastError());
 			break;
 		}
 
@@ -199,7 +199,7 @@ void *os_lock_virtual_pages( void * MemoryBlock, uint32_t Size )
 			MaximumWorkingSetSize
 			);
 		if ( !Successful ) {
-			nis_call_ecr("[nshost.os.os_lock_virtual_pages] syscall SetProcessWorkingSetSize failed, code:0x%08X", GetLastError() );
+			mxx_call_ecr("syscall SetProcessWorkingSetSize failed, code:0x%08X", GetLastError());
 			break;
 		}
 
