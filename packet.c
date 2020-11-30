@@ -33,6 +33,7 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 			} else if ( page_style == kVirtualHeap ) {
 				p_buffer = ( char * ) malloc( cbSize );
 				if ( !p_buffer ) {
+					mxx_call_ecr("fail to allocate memory %d", cbSize);
 					break;
 				}
 			} else {
