@@ -16,7 +16,7 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 
 	packet = ( packet_t * ) malloc( sizeof( packet_t ) );
 	if ( !packet ) {
-		nis_call_ecr("[nshost.packet.allocate_packet] fail to allocate memory for packet." );
+		nis_call_ecr("[nshost.packet.allocate_packet] insufficient memory for packet structure." );
 		return -1;
 	}
 
@@ -28,11 +28,13 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 #pragma warning(suppress: 6387)
 				p_buffer = os_lock_virtual_pages( NULL, cbSize );
 				if ( !p_buffer ) {
+					nis_call_ecr("[nshost.packet.allocate_packet] insufficient non-paged pool for acquired size:%d", cbSize);
 					break;
 				}
 			} else if ( page_style == kVirtualHeap ) {
 				p_buffer = ( char * ) malloc( cbSize );
 				if ( !p_buffer ) {
+					nis_call_ecr("[nshost.packet.allocate_packet] insufficient virtual memory for acquired size:%d", cbSize);
 					break;
 				}
 			} else {

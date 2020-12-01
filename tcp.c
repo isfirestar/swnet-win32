@@ -670,6 +670,7 @@ void tcp_dispatch_io_send( packet_t *packet )
 	h = packet->link;
 	if (tcprefr(h, &ncb) < 0) {
 		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] fail to reference link:%I64d", h);
+		freepkt(packet);
 		return;
 	}
 
@@ -703,6 +704,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	if (tcprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_recv] fail to reference link:%I64d", packet->link);
+		freepkt(packet);
 		return;
 	}
 
@@ -755,8 +757,11 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 	}
 
 	if (tcprefr(packet_connect->link, &ncb) < 0) {
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] fail to reference link:%I64d", packet_connect->link);
+		freepkt(packet_connect);
 		return;
 	}
+
 	freepkt(packet_connect);
 
 	packet_recv = NULL;
@@ -811,13 +816,16 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		return;
 	}
 
+	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
+
+	/* ncb object no longer effective, packet should freed rightnow */
 	if (tcprefr(packet->link, &ncb) < 0) {
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] fail to reference link:%I64d", packet->link);
+		freepkt(packet);
 		return;
 	}
 
 	do {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
-		
 		/* link will be destroy,when the exception happen on the origin request without send.*/
 		if (kSend != packet->type_) {
 			tcp_shutdown_by_packet(packet);
