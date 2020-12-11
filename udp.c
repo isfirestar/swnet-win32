@@ -53,7 +53,7 @@ static void udp_dispatch_io_recv( packet_t *packet )
 	}
 
 	if (udprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_dispatch_io_recv] fail to reference link:%I64d", packet->link);
+		mxx_call_ecr("fail to reference link:%I64d", packet->link);
 		return;
 	}
 
@@ -98,7 +98,7 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	}
 
 	if (udprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] fail to reference link:%I64d", packet->link);
+		mxx_call_ecr("fail to reference link:%I64d", packet->link);
 		return;
 	}
 
@@ -109,11 +109,11 @@ static void udp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	if (status == STATUS_PORT_UNREACHABLE ||
 		status == STATUS_PROTOCOL_UNREACHABLE ||
 		status == STATUS_HOST_UNREACHABLE) {
-		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] type:%d, NTSTATUS:0x%08X,link:%I64d, link remain", packet->type_, status, packet->link);
+		mxx_call_ecr("type:%d, NTSTATUS:0x%08X,link:%I64d, link remain", packet->type_, status, packet->link);
 		packet->size_for_translation_ = 0;
 		asio_udp_recv(packet);
 	} else {
-		nis_call_ecr("[nshost.udp.udp_dispatch_io_exception] type:%d, NTSTATUS:0x%08X,link:%I64d, this link will be shutdown", packet->type_, status, packet->link);
+		mxx_call_ecr("type:%d, NTSTATUS:0x%08X,link:%I64d, this link will be shutdown", packet->type_, status, packet->link);
 		udp_shutdown_by_packet(packet);
 	}
 	objdefr(ncb->hld);
@@ -190,7 +190,7 @@ static int udp_entry( objhld_t h, void * user_buffer, const void * ncb_ctx )
 		// 这项属性打开情形下会导致 WSAECONNRESET 错误返回
 		behavior = FALSE;
 		if (WSAIoctl(ncb->sockfd, SIO_UDP_CONNRESET, &behavior, sizeof(behavior), NULL, 0, &bytes_returned, NULL, NULL) < 0) {
-			nis_call_ecr("[nshost.udp.udp_entry] syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u,link:%I64d", WSAGetLastError(), ncb->hld);
+			mxx_call_ecr("syscall WSAIoctl failed to control SIO_UDP_CONNRESET,error cdoe=%u,link:%I64d", WSAGetLastError(), ncb->hld);
 			break;
 		}
 
@@ -228,7 +228,7 @@ static void udp_unload( objhld_t h, void * user_buffer )
 		free( ncb->ncb_ctx_ );
 	}
 
-	nis_call_ecr("[nshost.udp.udp_unload] object:%I64d finalization released", ncb->hld);
+	mxx_call_ecr("object:%I64d finalization released", ncb->hld);
 	ncb_post_close(ncb);
 }
 
@@ -404,7 +404,7 @@ int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const 
 				continue;
 			}
 
-			nis_call_ecr("[nshost.udp.__udp_tx_single_packet] syscall sendto(2) failed,error:%d,link:%I64d", WSAGetLastError(), ncb->hld);
+			mxx_call_ecr("syscall sendto(2) failed,error:%d,link:%I64d", WSAGetLastError(), ncb->hld);
 			return -1;
 		}
 
@@ -423,7 +423,7 @@ PORTABLEIMPL(int) udp_awaken(HUDPLINK link, const void *pipedata, int cb)
 
 	ncb = (ncb_t *)objrefr(link);
 	if (!ncb) {
-		nis_call_ecr("[nshost.udp.udp_write_pipe] fail to reference link:%I64d", link);
+		mxx_call_ecr("fail to reference link:%I64d", link);
 		return -ENOENT;
 	}
 
@@ -480,7 +480,7 @@ PORTABLEIMPL(int) udp_write(HUDPLINK lnk, const void *origin, int cb, const char
 
 	ncb = (ncb_t *)objrefr(hld);
 	if (!ncb) {
-		nis_call_ecr("[nshost.udp.udp_write] fail to reference link:%I64d", hld);
+		mxx_call_ecr("fail to reference link:%I64d", hld);
 		return -ENOENT;
 	}
 
@@ -519,7 +519,7 @@ PORTABLEIMPL(void) udp_destroy( HUDPLINK lnk )
 	/* it should be the last reference operation of this object no matter how many ref-count now. */
 	ncb = objreff(lnk);
 	if (ncb) {
-		nis_call_ecr("[nshost.udp.destroy] link:%I64d order to destroy", ncb->hld);
+		mxx_call_ecr("link:%I64d order to destroy", ncb->hld);
 		ioclose(ncb);
 		objdefr(lnk);
 	}
@@ -545,7 +545,7 @@ PORTABLEIMPL(int) udp_getaddr( HUDPLINK lnk, uint32_t* ipv4, uint16_t *port_outp
 		return 0;
 	}
 
-	nis_call_ecr("[nshost.udp.udp_getaddr ]fail to reference link:%I64d", lnk );
+	mxx_call_ecr("fail to reference link:%I64d", lnk);
 	return -1;
 }
 
@@ -559,7 +559,7 @@ PORTABLEIMPL(int) udp_setopt( HUDPLINK lnk, int level, int opt, const char *val,
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_setaddr ]fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -578,7 +578,7 @@ PORTABLEIMPL(int) udp_getopt( HUDPLINK lnk, int level, int opt, char *val, int *
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_getopt ]fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -603,7 +603,7 @@ PORTABLEIMPL(int) udp_initialize_grp( HUDPLINK lnk, packet_grp_t *grp )
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_initialize_grp ] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -663,7 +663,7 @@ PORTABLEIMPL(int) udp_raise_grp( HUDPLINK lnk, const char *r_ipstr, uint16_t r_p
 	struct sockaddr_in r_addr;
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_raise_grp ] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -703,7 +703,7 @@ PORTABLEIMPL(void) udp_detach_grp( HUDPLINK lnk )
 	ncb_t * ncb;
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_detach_grp] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return;
 	}
 
@@ -730,7 +730,7 @@ PORTABLEIMPL(int) udp_write_grp( HUDPLINK lnk, packet_grp_t *grp )
 	}
 
 	if (udprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.udp.udp_write_grp] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 

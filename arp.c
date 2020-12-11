@@ -49,7 +49,7 @@ static void arp_unload(objhld_t h, void * user_buffer)
 		free(ncb->ncb_ctx_);
 	}
 
-	nis_call_ecr("[nshost.arp.arp_unload] object:%I64d finalization released", ncb->hld);
+	mxx_call_ecr("object:%I64d finalization released", ncb->hld);
 	ncb_post_close(ncb);
 }
 
@@ -84,13 +84,13 @@ PORTABLEIMPL(HARPLINK) arp_create(arp_io_callback_t callback, const char *source
 
 	fd = so_create(SOCK_RAW, IPPROTO_IP);
 	if (fd < 0) {
-		nis_call_ecr("[nshost.arp.create] fatal error occurred syscall socket(2), error:%d", errno);
+		mxx_call_ecr("fatal error occurred syscall socket(2), error:%d", errno);
 		return -1;
 	}
 
 	hld = objallo(sizeof (ncb_t), NULL, &arp_unload, NULL, 0);
 	if (hld < 0) {
-		nis_call_ecr("[nshost.arp.create] insufficient resource for allocate inner object");
+		mxx_call_ecr("insufficient resource for allocate inner object");
 		closesocket(fd);
 		return -1;
 	}
@@ -115,7 +115,7 @@ PORTABLEIMPL(void) arp_destroy(HARPLINK link)
 	/* it should be the last reference operation of this object no matter how many ref-count now. */
 	ncb = objreff(link);
 	if (ncb) {
-		nis_call_ecr("[nshost.arp.destroy] link:%lld order to destroy", ncb->hld);
+		mxx_call_ecr("link:%lld order to destroy", ncb->hld);
 		ioclose(ncb);
 		objdefr(link);
 	}

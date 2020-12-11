@@ -123,7 +123,7 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 			/* examine the cached count, it MUST less than the restrict */
 			if ( InterlockedIncrement((volatile LONG *)&ncb->tcp_sender_list_size_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK ) {
 				InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_list_size_);
-				nis_call_ecr("[nshost.tcp.tcp_try_write] pre-sent cache overflow, link:%I64d", ncb->hld);
+				mxx_call_ecr("pre-sent cache overflow, link:%I64d", ncb->hld);
 				break;
 			}
 
@@ -187,12 +187,12 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 	}
 
 	if (0 == packet->size_for_translation_) {
-		nis_call_ecr("[nshost.tcp.tcp_lb_assemble] size of translation equal to zero, link:%I64d", ncb->hld);
+		mxx_call_ecr("size of translation equal to zero, link:%I64d", ncb->hld);
 		return -1;
 	}
 
 	if (!ncb->tcp_tst_.parser_) {
-		nis_call_ecr("[nshost.tcp.tcp_lb_assemble] tcp parser proc is empty, link:%I64d", ncb->hld);
+		mxx_call_ecr("tcp parser proc is empty, link:%I64d", ncb->hld);
 		return -1;
 	}
 
@@ -201,7 +201,7 @@ int tcp_lb_assemble( ncb_t * ncb, packet_t * packet )
 
 	// 从大包缓冲区中，取得大包需要的长度
 	if ( ncb->tcp_tst_.parser_( ncb->lb_data_, ncb->tcp_tst_.cb_, &user_size ) < 0 ) {
-		nis_call_ecr("[nshost.tcp.tcp_lb_assemble] tcp parser call failed, link:%I64d", ncb->hld);
+		mxx_call_ecr("tcp parser call failed, link:%I64d", ncb->hld);
 		return -1;
 	}
 
@@ -302,7 +302,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 			if ( ncb_mark_lb( ncb, total_packet_length, current_usefule_size, ( char * ) packet->ori_buffer_ + current_parse_offset ) < 0 ) {
 				return -1;
 			}
-			nis_call_ecr("[nshost.tcp.tcp_prase_logic_packet] large packet marked, link:%I64d, size:%u", ncb->hld, total_packet_length);
+			mxx_call_ecr("large packet marked, link:%I64d, size:%u", ncb->hld, total_packet_length);
 			packet->analyzed_offset_ = 0;
 			return 0;
 		}
@@ -469,7 +469,7 @@ void tcp_unload( objhld_t h, void * user_buffer )
 		free( ncb->ncb_ctx_ );
 	}
 
-	nis_call_ecr("[nshost.tcp.tcp_unload] object:%I64d finalization released",ncb->hld);
+	mxx_call_ecr("object:%I64d finalization released", ncb->hld);
 
 	// 处理关闭后事件
 	ncb_post_close(ncb);
@@ -565,7 +565,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		status = (NTSTATUS)WSAIoctl(ncb_accepted->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_GET_ACCEPTEX_SOCK_ADDRS,
 			sizeof( GUID_GET_ACCEPTEX_SOCK_ADDRS ), &WSAGetAcceptExSockAddrs, sizeof( WSAGetAcceptExSockAddrs ), &cb_ioctl, NULL, NULL );
 		if ( !NT_SUCCESS( status ) ) {
-			nis_call_ecr("[nshost.tcp.tcp_syn_copy] syscall WSAIoctl for GUID_GET_ACCEPTEX_SOCK_ADDRS failed,NTSTATUS=0x%08X, link:%I64d", status, ncb_accepted->hld);
+			mxx_call_ecr("syscall WSAIoctl for GUID_GET_ACCEPTEX_SOCK_ADDRS failed,NTSTATUS=0x%08X, link:%I64d", status, ncb_accepted->hld);
 			return -1;
 		}
 	}
@@ -598,7 +598,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 		}
 	}
 
-	nis_call_ecr("[nshost.tcp.tcp_syn_copy] syscall setsockopt(2) failed(SO_UPDATE_ACCEPT_CONTEXT), error code:%u, link:%I64d", WSAGetLastError(), ncb_accepted->hld);
+	mxx_call_ecr("syscall setsockopt(2) failed(SO_UPDATE_ACCEPT_CONTEXT), error code:%u, link:%I64d", WSAGetLastError(), ncb_accepted->hld);
 	return -1;
 }
 
@@ -620,7 +620,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 	}
 
 	if (tcprefr(packet->link, &ncb_listen) < 0) {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_syn] fail to reference link:%I64d", packet->link);
+		mxx_call_ecr("fail to reference link:%I64d", packet->link);
 		return;
 	}
 
@@ -662,14 +662,14 @@ void tcp_dispatch_io_send( packet_t *packet )
 
 	/* translate bytes is zero, the only legal situation is TCP-SYN completed, all the other situation regard as fatal error, link will is going to destroy */
 	if ( packet->size_for_translation_ <= 0 ) {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] the translated size equal to zero, link:%I64d", packet->link);
+		mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
 		tcp_shutdown_by_packet( packet );
 		return;
 	}
 
 	h = packet->link;
 	if (tcprefr(h, &ncb) < 0) {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] fail to reference link:%I64d", h);
+		nis_call_ecr("fail to reference link:%I64d", h);
 		freepkt(packet);
 		return;
 	}
@@ -697,13 +697,13 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	/* 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接 */
 	if ( packet->size_for_translation_ <= 0 ) {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_recv] the translated size equal to zero, link:%I64d", packet->link);
+		mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
 		tcp_shutdown_by_packet( packet );
 		return;
 	}
 
 	if (tcprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_recv] fail to reference link:%I64d", packet->link);
+		nis_call_ecr("fail to reference link:%I64d", packet->link);
 		freepkt(packet);
 		return;
 	}
@@ -723,7 +723,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 		/* 解析 TCP 包为符合协议规范的逻辑包 */
 		retval = tcp_prase_logic_packet( ncb, packet );
 		if ( retval < 0 ) {
-			nis_call_ecr("[nshost.tcp.tcp_dispatch_io_recv] fail to parse logic packet, link:%I64d", packet->link);
+			mxx_call_ecr("fail to parse logic packet, link:%I64d", packet->link);
 			break;
 		}
 
@@ -785,19 +785,19 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 
 		/* 成功连接对端， 应该投递一个接收数据的IRP， 允许这个连接接收数据 */
 		if (allocate_packet(ncb->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kVirtualHeap, &packet_recv) < 0) {
-			nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] alloc packet failed,link:%I64d", ncb->hld);
+			mxx_call_ecr("alloc packet failed,link:%I64d", ncb->hld);
 			break;
 		}
 
 		if (asio_tcp_recv(packet_recv) < 0) {
-			nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] asio_tcp_recv failed,link:%I64d", ncb->hld);
+			mxx_call_ecr("asio_tcp_recv failed,link:%I64d", ncb->hld);
 			tcp_shutdown_by_packet(packet_recv);
 			break;
 		}
 
 		/* notify the connected result */
 		ncb_post_connected(ncb);
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] tcp asynchronous connect success,link:%I64d", ncb->hld);
+		mxx_call_ecr("tcp asynchronous connect success,link:%I64d", ncb->hld);
 		objdefr(ncb->hld);
 		return;
 	} while ( 0 );
@@ -825,6 +825,8 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	}
 
 	do {
+		mxx_call_ecr("IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
+
 		/* link will be destroy,when the exception happen on the origin request without send.*/
 		if (kSend != packet->type_) {
 			tcp_shutdown_by_packet(packet);
@@ -899,7 +901,7 @@ void tcp_shutdown_by_packet( packet_t * packet )
 		case kRecv:
 		case kSend:
 		case kConnect:
-			nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] type:%d link:%I64d", packet->type_, packet->link);
+			mxx_call_ecr("type:%d link:%I64d", packet->type_, packet->link);
 			objclos(packet->link);
 			freepkt( packet );
 			break;
@@ -911,13 +913,13 @@ void tcp_shutdown_by_packet( packet_t * packet )
 			// 3. 重新扔出一个accept请求
 			//
 		case kSyn:
-			nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] accept link:%I64d, listen link:%I64d", packet->type_, packet->accepted_link, packet->link);
+			mxx_call_ecr("accept link:%I64d, listen link:%I64d", packet->type_, packet->accepted_link, packet->link);
 
 			if (tcprefr(packet->link, &ncb) >= 0) {
 				tcp_syn( ncb );
 				objdefr(ncb->hld);
 			} else {
-				nis_call_ecr("[nshost.tcp.tcp_shutdown_by_packet] fail reference listen object link:%I64d", packet->link);
+				mxx_call_ecr("fail reference listen object link:%I64d", packet->link);
 			}
 
 			objclos(packet->accepted_link);
@@ -971,7 +973,7 @@ int tcp_settst_r(HTCPLINK link, tst_t *tst)
 
 	/* size of tcp template must be less or equal to 32 bytes */
 	if (tst->cb_ > TCP_MAXIMUM_TEMPLATE_SIZE) {
-		nis_call_ecr("[nshost.tcp.settst] tst size must less than 32 byte.");
+		mxx_call_ecr("tst size must less than 32 byte.");
 		return -EINVAL;
 	}
 
@@ -980,9 +982,9 @@ int tcp_settst_r(HTCPLINK link, tst_t *tst)
 		return retval;
 	}
 
-	ncb->tcp_tst_.cb_ = InterlockedExchange((volatile LONG *)&ncb->tcp_tst_.cb_, tst->cb_);
-	ncb->tcp_tst_.builder_ = InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.builder_, tst->builder_);
-	ncb->tcp_tst_.parser_ = InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.parser_, tst->parser_);
+	InterlockedExchange((volatile LONG *)&ncb->tcp_tst_.cb_, tst->cb_);
+	InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.builder_, tst->builder_);
+	InterlockedExchangePointer((volatile PVOID *)&ncb->tcp_tst_.parser_, tst->parser_);
 	objdefr(link);
 	return retval;
 }
@@ -1065,7 +1067,7 @@ PORTABLEIMPL(void) tcp_destroy( HTCPLINK lnk )
 	/* it should be the last reference operation of this object, no matter how many ref-count now. */
 	ncb = objreff(lnk);
 	if (ncb) {
-		nis_call_ecr("[nshost.tcp.tcp_destroy] link:%I64d order to destroy", ncb->hld);
+		mxx_call_ecr("link:%I64d order to destroy", ncb->hld);
 		ioclose(ncb);
 		objdefr(lnk);
 	}
@@ -1082,7 +1084,7 @@ PORTABLEIMPL(int) tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port 
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr( "[nshost.tcp.tcp_connect] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -1095,7 +1097,7 @@ PORTABLEIMPL(int) tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port 
 
 	do {
 		if (connect(ncb->sockfd, (const struct sockaddr *)&r_addr, sizeof(r_addr)) == SOCKET_ERROR) {
-			nis_call_ecr("[nshost.tcp.tcp_connect] syscall connect(2) failed,target endpoint=%s:%u, error:%u, link:%I64d", r_ipstr, port, WSAGetLastError(), ncb->hld);
+			mxx_call_ecr("syscall connect(2) failed,target endpoint=%s:%u, error:%u, link:%I64d", r_ipstr, port, WSAGetLastError(), ncb->hld);
 			break;
 		}
 
@@ -1146,7 +1148,7 @@ PORTABLEIMPL(int) tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.tcp.tcp_connect2] fail to reference link:%I64d", lnk);
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -1182,7 +1184,7 @@ PORTABLEIMPL(int) tcp_listen( HTCPLINK lnk, int block )
 	int i;
 
 	if (tcprefr(lnk, &ncb) < 0 ) {
-		nis_call_ecr( "[nshost.tcp.tcp_listen] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -1196,7 +1198,7 @@ PORTABLEIMPL(int) tcp_listen( HTCPLINK lnk, int block )
 
 		retval = listen(ncb->sockfd, block);
 		if ( retval < 0 ) {
-			nis_call_ecr("syscall listen failed,error code=%u", WSAGetLastError());
+			mxx_call_ecr("syscall listen failed,error code=%u", WSAGetLastError());
 			break;
 		}
 
@@ -1221,7 +1223,7 @@ PORTABLEIMPL(int) tcp_awaken(HUDPLINK link, const void *pipedata, int cb)
 
 	ncb = (ncb_t *)objrefr(link);
 	if (!ncb) {
-		nis_call_ecr("[nshost.udp.udp_write_pipe] fail to reference link:%I64d", link);
+		mxx_call_ecr("fail to reference link:%I64d", link);
 		return -ENOENT;
 	}
 
@@ -1283,14 +1285,14 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 	retval = -1;
 
 	if ( tcprefr(lnk, &ncb) < 0 ) {
-		nis_call_ecr("[nshost.tcp.tcp_write] failed reference object, link:%I64d", lnk);
+		mxx_call_ecr("failed reference object, link:%I64d", lnk);
 		return -ENOENT;
 	}
 
 	do {
 		/* shift check cached count */
 		if (InterlockedExchangeAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
-			nis_call_ecr("[nshost.tcp.tcp_write] pre-sent cache overflow, link:%I64d", lnk);
+			mxx_call_ecr("pre-sent cache overflow, link:%I64d", lnk);
 			break;
 		}
 
@@ -1364,7 +1366,7 @@ PORTABLEIMPL(int) tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr("[nshost.tcp.tcp_getaddr] fail to reference link:%I64d", lnk);
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
@@ -1397,14 +1399,14 @@ PORTABLEIMPL(int) tcp_setopt( HTCPLINK lnk, int level, int opt, const char *val,
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr( "[nshost.tcp.tcp_getaddr] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
 	if ( kProto_TCP == ncb->proto_type ) {
 		retval = setsockopt(ncb->sockfd, level, opt, val, len);
 		if ( retval == SOCKET_ERROR ) {
-			nis_call_ecr("[nshost.tcp.tcp_getaddr]  syscall setsockopt(2) failed,error code:%u, link:%I64d", WSAGetLastError(), ncb->hld);
+			mxx_call_ecr("syscall setsockopt(2) failed,error code:%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}
 
@@ -1422,14 +1424,14 @@ PORTABLEIMPL(int) tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, in
 	}
 
 	if (tcprefr(lnk, &ncb) < 0) {
-		nis_call_ecr( "[nshost.tcp.tcp_getopt] fail to reference link:%I64d", lnk );
+		mxx_call_ecr("fail to reference link:%I64d", lnk);
 		return -1;
 	}
 
 	if ( kProto_TCP == ncb->proto_type ) {
 		retval = getsockopt(ncb->sockfd, level, opt, OptVal, len);
 		if ( retval == SOCKET_ERROR ) {
-			nis_call_ecr("[nshost.tcp.tcp_getopt] syscall failed getsockopt ,error code:%u,link:%I64d", WSAGetLastError(), ncb->hld);
+			mxx_call_ecr("syscall failed getsockopt ,error code:%u,link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}
 

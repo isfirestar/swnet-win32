@@ -16,7 +16,7 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 
 	packet = ( packet_t * ) malloc( sizeof( packet_t ) );
 	if ( !packet ) {
-		nis_call_ecr("[nshost.packet.allocate_packet] fail to allocate memory for packet." );
+		mxx_call_ecr("fail to allocate memory for packet.");
 		return -1;
 	}
 
@@ -33,15 +33,16 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 			} else if ( page_style == kVirtualHeap ) {
 				p_buffer = ( char * ) malloc( cbSize );
 				if ( !p_buffer ) {
+					mxx_call_ecr("fail to allocate memory %d", cbSize);
 					break;
 				}
 			} else {
-				nis_call_ecr("[nshost.packet.allocate_packet] unknown page style %u specified.", page_style );
+				mxx_call_ecr("unknown page style %u specified.", page_style);
 				break;
 			}
 		} else {
 			if ( page_style != kNoAccess ) {
-				nis_call_ecr("[nshost.packet.allocate_packet] page style %u specified and size is zero", page_style );
+				mxx_call_ecr("page style %u specified and size is zero", page_style);
 				break;
 			}
 		}
@@ -136,7 +137,7 @@ int asio_tcp_accept( packet_t * packet )
 	status = (NTSTATUS)WSAIoctl(ncb_listen->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_ACCEPTEX, sizeof(GUID_ACCEPTEX),
 		&WSAAcceptEx, sizeof(WSAAcceptEx), &bytes_return, NULL, NULL);
 	if (!NT_SUCCESS(status)) {
-		nis_call_ecr("[nshost.packet.asio_tcp_accept] syscall WSAIoctl for WSAID_ACCEPTEX failed,NTSTATUS=0x%08X,link:%I64d", status, ncb_listen->hld);
+		mxx_call_ecr("syscall WSAIoctl for WSAID_ACCEPTEX failed,NTSTATUS=0x%08X,link:%I64d", status, ncb_listen->hld);
 		objdefr(ncb_listen->hld);
 		return -1;
 	}
@@ -147,7 +148,7 @@ int asio_tcp_accept( packet_t * packet )
 		if ( !WSAAcceptEx( ncb_listen->sockfd, ncb_income->sockfd, packet->irp_, 0,
 			sizeof( struct sockaddr_in ) + 16, sizeof( struct sockaddr_in ) + 16, &packet->size_for_translation_, &packet->overlapped_ ) ) {
 			if ( ERROR_IO_PENDING != WSAGetLastError() ) {
-				nis_call_ecr("[nshost.packet.asio_tcp_accept] syscall WSAAcceptEx failed,error code=%u,link:%I64d", WSAGetLastError(), ncb_listen->hld);
+				mxx_call_ecr("syscall WSAAcceptEx failed,error code=%u,link:%I64d", WSAGetLastError(), ncb_listen->hld);
 				retval = -1;
 			}
 		}
@@ -187,7 +188,7 @@ int asio_tcp_send( packet_t *packet )
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
 			retval = 0;
 		} else {
-			nis_call_ecr("[nshost.packet.asio_tcp_send] syscall WSASend failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld );
+			mxx_call_ecr("syscall WSASend failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}
 
@@ -219,7 +220,7 @@ int asio_tcp_recv( packet_t * packet )
 			retval = 0;
 		} else {
 			retval = -1;
-			nis_call_ecr("[nshost.packet.asio_tcp_recv] syscall WSARecv failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld );
+			mxx_call_ecr("syscall WSARecv failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}
 
@@ -250,7 +251,7 @@ int asio_tcp_connect(packet_t *packet)
 		status = (NTSTATUS)WSAIoctl(ncb->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_CONNECTEX, sizeof(GUID_CONNECTEX),
 			&WSAConnectEx, sizeof(WSAConnectEx), &bytes_return, NULL, NULL);
 		if (!NT_SUCCESS(status)) {
-			nis_call_ecr("[nshost.packet.asio_tcp_connect] syscall WSAIoctl for WSAID_CONNECTEX failed,NTSTATUS=0x%08X,link:%I64d", status, ncb->hld);
+			mxx_call_ecr("syscall WSAIoctl for WSAID_CONNECTEX failed,NTSTATUS=0x%08X,link:%I64d", status, ncb->hld);
 			break;
 		}
 
@@ -259,7 +260,7 @@ int asio_tcp_connect(packet_t *packet)
 		{
 			uint32_t errcode = WSAGetLastError();
 			if (ERROR_IO_PENDING != errcode) {
-				nis_call_ecr("[nshost.packet.asio_tcp_connect] syscall ConnectEx failed,errcode=%u,link:%ldd", WSAGetLastError(), ncb->hld);
+				mxx_call_ecr("syscall ConnectEx failed,errcode=%u,link:%ldd", WSAGetLastError(), ncb->hld);
 				break;
 			}
 		}
@@ -297,7 +298,7 @@ int asio_udp_recv( packet_t * packet )
 			retval = 0;
 		} else {
 			retval = -1;
-			nis_call_ecr("[nshost.packet.asio_udp_recv] syscall WSARecvFrom failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
+			mxx_call_ecr("syscall WSARecvFrom failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		}
 	}
 
@@ -335,7 +336,7 @@ int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port )
 		( const struct sockaddr * )&packet->remote_addr, sizeof( struct sockaddr ), NULL, NULL );
 	if (retval == SOCKET_ERROR) {
 		retval = -1;
-		nis_call_ecr("[nshost.packet.syio_udp_send] syscall WSASendTo failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
+		mxx_call_ecr("syscall WSASendTo failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 	}
 
 	freepkt( packet );
@@ -364,7 +365,7 @@ int syio_v_disconnect( ncb_t * ncb )
 	// 面向无连接的0地址结构连接操作， 即为反向设置伪连接， 反向设置伪连接后， UDP对象可以继续处理源连接以外的地址所得的包
 	retval = WSAConnect(ncb->sockfd, (const struct sockaddr *)&addr, sizeof(addr), NULL, NULL, NULL, NULL);
 	if (retval == SOCKET_ERROR) {
-		nis_call_ecr("[nshost.packet.syio_v_disconnect] syscall WSAConnect failed,error code=%u,  link:%I64d", WSAGetLastError(), ncb->hld);
+		mxx_call_ecr("syscall WSAConnect failed,error code=%u,  link:%I64d", WSAGetLastError(), ncb->hld);
 	}
 	return retval;
 }
@@ -375,7 +376,7 @@ int syio_v_connect( ncb_t * ncb, const struct sockaddr_in *r_addr )
 
 	retval = WSAConnect(ncb->sockfd, (const struct sockaddr *)r_addr, sizeof(struct sockaddr_in), NULL, NULL, NULL, NULL);
 	if (retval == SOCKET_ERROR) {
-		nis_call_ecr("[nshost.packet.syio_v_connect] syscall WSAConnect failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
+		mxx_call_ecr("syscall WSAConnect failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		return -1;
 	}
 
@@ -411,13 +412,13 @@ int syio_grp_send( packet_t * packet )
 			status = WSAIoctl(ncb->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_TRANSMIT_PACKETS, sizeof(GUID_TRANSMIT_PACKETS), &WSATransmitPackets,
 				sizeof( WSATransmitPackets ), &bytes_return, NULL, NULL );
 			if ( !NT_SUCCESS( status ) ) {
-				nis_call_ecr("[nshost.packet.syio_grp_send] syscall WSAIoctl for GUID_TRANSMIT_PACKETS failed,NTSTATUS=0x%08X, link:%I64d", status, ncb->hld);
+				mxx_call_ecr("syscall WSAIoctl for GUID_TRANSMIT_PACKETS failed,NTSTATUS=0x%08X, link:%I64d", status, ncb->hld);
 				break;
 			}
 		}
 
 		if (!WSATransmitPackets(ncb->sockfd, packet->grp_packets_, packet->grp_packets_cnt_, MAXDWORD, NULL, 0)) {
-			nis_call_ecr("[nshost.packet.syio_grp_send] syscall WSATransmitPackets failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
+			mxx_call_ecr("syscall WSATransmitPackets failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 			break;
 		}
 
