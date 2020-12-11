@@ -77,7 +77,7 @@ static int tcp_get_nodelay( ncb_t *ncb, int *set );
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static
-int tcprefr(objhld_t hld, ncb_t **ncb) 
+int tcprefr(objhld_t hld, ncb_t **ncb)
 {
 	if (hld < 0 || !ncb) {
 		return -EINVAL;
@@ -137,7 +137,7 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 		}
 
 		/* from now on, @packet MUST NOT free */
-		retval = 0; 
+		retval = 0;
 
 		/* another asynchronous operations may be in progress,
 			double check to estimate whether the opportunity of send is right */
@@ -325,7 +325,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 			c_data.e.Packet.Size = user_size;
 			c_data.e.Packet.Data = (const char *)((char *)packet->ori_buffer_ + current_parse_offset + ncb->tcp_tst_.cb_);
 		}
-		
+
 		if (ncb->nis_callback) {
 			ncb->nis_callback(&c_event, &c_data);
 		}
@@ -345,7 +345,7 @@ int tcp_prase_logic_packet( ncb_t * ncb, packet_t * packet )
 	return 0;
 }
 
-int tcp_update_opts(ncb_t *ncb) 
+int tcp_update_opts(ncb_t *ncb)
 {
     if (!ncb) {
         return -1;
@@ -476,7 +476,7 @@ void tcp_unload( objhld_t h, void * user_buffer )
 }
 
 static
-objhld_t tcp_allocate_object(const tcp_cinit_t *ctx) 
+objhld_t tcp_allocate_object(const tcp_cinit_t *ctx)
 {
 	ncb_t *ncb;
 	objhld_t h;
@@ -670,12 +670,13 @@ void tcp_dispatch_io_send( packet_t *packet )
 	h = packet->link;
 	if (tcprefr(h, &ncb) < 0) {
 		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_send] fail to reference link:%I64d", h);
+		freepkt(packet);
 		return;
 	}
 
 	/* reduce the pending count(to zero) on this link */
 	InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
-	
+
 	/* next write request MUST later than pending count decrease */
 	tcp_try_write( ncb, NULL );
 
@@ -703,6 +704,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 
 	if (tcprefr(packet->link, &ncb) < 0) {
 		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_recv] fail to reference link:%I64d", packet->link);
+		freepkt(packet);
 		return;
 	}
 
@@ -755,10 +757,12 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 	}
 
 	if (tcprefr(packet_connect->link, &ncb) < 0) {
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] fail to reference link:%I64d", packet_connect->link);
+		freepkt(packet_connect);
 		return;
 	}
-	freepkt(packet_connect);
 
+	freepkt(packet_connect);
 	packet_recv = NULL;
 
 	do {
@@ -790,7 +794,7 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 			tcp_shutdown_by_packet(packet_recv);
 			break;
 		}
-		
+
 		/* notify the connected result */
 		ncb_post_connected(ncb);
 		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] tcp asynchronous connect success,link:%I64d", ncb->hld);
@@ -811,13 +815,16 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		return;
 	}
 
+	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
+
+	/* ncb object no longer effective, packet should freed rightnow */
 	if (tcprefr(packet->link, &ncb) < 0) {
+		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] fail to reference link:%I64d", packet->link);
+		freepkt(packet);
 		return;
 	}
 
 	do {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
-		
 		/* link will be destroy,when the exception happen on the origin request without send.*/
 		if (kSend != packet->type_) {
 			tcp_shutdown_by_packet(packet);
@@ -834,7 +841,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 		/* reduce pending packet count in current ncb context */
 		InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
-		
+
 		/* release the current package */
 		freepkt(packet);
 		/* try post next package */
@@ -1240,7 +1247,7 @@ PORTABLEIMPL(int) tcp_awaken(HUDPLINK link, const void *pipedata, int cb)
 		}
 		packet->link = link;
 		packet->ori_buffer_ = buffer;
-		
+
 		if (!PostQueuedCompletionStatus(epfd, cb, 0, &packet->overlapped_)) {
 			break;
 		}
@@ -1279,7 +1286,7 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 		nis_call_ecr("[nshost.tcp.tcp_write] failed reference object, link:%I64d", lnk);
 		return -ENOENT;
 	}
-	
+
 	do {
 		/* shift check cached count */
 		if (InterlockedExchangeAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
@@ -1288,7 +1295,7 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 		}
 
 		if ((!ncb->tcp_tst_.builder_) || (ncb->attr & LINKATTR_TCP_NO_BUILD)) {
-			total_packet_length = cb;	                                   
+			total_packet_length = cb;
 			/* the protocol builder are not specified, @tcp_write proc has responsibility to fill the packet buffer */
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
 				break;
@@ -1327,7 +1334,7 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 		}
 		packet->ori_buffer_ = packet->irp_ = buffer;
 		packet->size_for_req_ = total_packet_length;
-		
+
 		/* try to write this packet to network adpater or cache it into low-level queue */
 		if ( (retval = tcp_try_write(ncb, packet) ) < 0) {
 			freepkt( packet );
@@ -1434,7 +1441,7 @@ PORTABLEIMPL(int) tcp_getopt( HTCPLINK lnk, int level, int opt, char *OptVal, in
 //	Windows 10, version 1703[desktop apps only]
 //	Minimum supported server
 //	Windows Server 2016[desktop apps only]
-int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp) 
+int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp)
 {
 	//WSAIoctl(ncb->sockfd, SIO_TCP_INFO,
 	//	(LPVOID)lpvInBuffer,   // pointer to a DWORD
@@ -1448,7 +1455,7 @@ int tcp_save_info(ncb_t *ncb, TCP_INFO_v0 *ktcp)
 	return -1;
 }
 
-int tcp_setmss(ncb_t *ncb, int mss) 
+int tcp_setmss(ncb_t *ncb, int mss)
 {
     if (ncb && mss > 0) {
         return setsockopt(ncb->sockfd, IPPROTO_TCP, TCP_MAXSEG, (const void *) &mss, sizeof(mss));
@@ -1474,7 +1481,7 @@ int tcp_set_nodelay(ncb_t *ncb, int set){
     return -EINVAL;
 }
 
-int tcp_get_nodelay(ncb_t *ncb, int *set) 
+int tcp_get_nodelay(ncb_t *ncb, int *set)
 {
     if (ncb && set) {
         socklen_t optlen = sizeof(int);
@@ -1483,7 +1490,7 @@ int tcp_get_nodelay(ncb_t *ncb, int *set)
     return -EINVAL;
 }
 
-PORTABLEIMPL(int) tcp_setattr(HTCPLINK lnk, int attr, int enable) 
+PORTABLEIMPL(int) tcp_setattr(HTCPLINK lnk, int attr, int enable)
 {
 	ncb_t *ncb;
 	int retval;
@@ -1509,7 +1516,7 @@ PORTABLEIMPL(int) tcp_setattr(HTCPLINK lnk, int attr, int enable)
 	return retval;
 }
 
-PORTABLEIMPL(int) tcp_getattr(HTCPLINK lnk, int attr, int *enabled) 
+PORTABLEIMPL(int) tcp_getattr(HTCPLINK lnk, int attr, int *enabled)
 {
 	ncb_t *ncb;
 	int retval;
