@@ -170,7 +170,7 @@ void iouninit()
 	int i;
 	struct epoll_object *epos;
 
-	if (!posix__atomic_initial_regress(__inited__)) {
+	if (!posix__atomic_initial_regress(&__inited__)) {
 		return;
 	}
 
@@ -181,7 +181,7 @@ void iouninit()
 	for (i = 0; i < epmgr.divisions; i++){
 		epos = &epmgr.epos[i];
 		if (YES == epmgr.epos[i].actived){
-			posix__atomic_xchange(epos->actived, NO);
+			posix__atomic_xchange(&epos->actived, NO);
 			PostQueuedCompletionStatus(epos->epfd, IOCP_INVALID_SIZE_TRANSFER, IOCP_INVALID_COMPLETION_KEY, IOCP_INVALID_OVERLAPPED_PTR);
 			WaitForSingleObject(epos->thread, INFINITE);
 			CloseHandle(epos->thread);
