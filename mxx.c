@@ -135,6 +135,7 @@ PORTABLEIMPL(int) nis_gethost( const char *name, uint32_t *ipv4 )
 
 	struct hostent *remote;
     struct in_addr addr;
+	/*struct addrinfo hits, *pres;*/
 
 	if (!name || !ipv4) {
 		return -1;
@@ -146,8 +147,10 @@ PORTABLEIMPL(int) nis_gethost( const char *name, uint32_t *ipv4 )
 
 	 if (isalpha(name[0])) {        /* host address is a name */
         remote = gethostbyname(name);
+		/*getaddrinfo(name, NULL, &hits, &pres);*/
 	 } else {
-		 addr.s_addr = inet_addr( name );
+		 /*addr.s_addr = inet_addr( name );*/
+		 inet_pton(AF_INET, name, &addr.S_un.S_addr);
 		 if ( INADDR_NONE == addr.s_addr ) {
 			 return -1;
 		 } else {
@@ -201,7 +204,7 @@ void nis_call_ecr( const char *fmt, ... )
 {
 	nis_event_callback_t ecr = NULL, old;
 	va_list ap;
-	char logstr[128];
+	char logstr[1280];
 	int retval;
 
 	if ( !current_ecr ) {
@@ -311,8 +314,11 @@ PORTABLEIMPL(int) nis_getifmisc(ifmisc_t *ifv, int *cbifv)
 	pCurrAddresses = pAddresses;
 	while (pCurrAddresses) {
 		strncpy_s(ifv[i].eth, sizeof(ifv[i].eth) - 1, pCurrAddresses->Description, sizeof(ifv[i].eth) - 1);
+		inet_pton(AF_INET, pCurrAddresses->IpAddressList.IpAddress.String, &ifv[i].inet);
+		inet_pton(AF_INET, pCurrAddresses->IpAddressList.IpMask.String, &ifv[i].mask);
+		/*
 		ifv[i].inet = inet_addr(pCurrAddresses->IpAddressList.IpAddress.String);
-		ifv[i].mask = inet_addr(pCurrAddresses->IpAddressList.IpMask.String);
+		ifv[i].mask = inet_addr(pCurrAddresses->IpAddressList.IpMask.String);*/
 		ifv[i].boardcast = 0;
 		pCurrAddresses = pCurrAddresses->Next;
 		i++;

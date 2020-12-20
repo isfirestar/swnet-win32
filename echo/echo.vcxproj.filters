@@ -1,0 +1,171 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Resource Files\nshost">
+      <UniqueIdentifier>{68d1d303-2710-48c2-a389-313313b0feec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\icom">
+      <UniqueIdentifier>{c1420eb5-5142-4d8f-b9b0-bf1f44395acc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\com">
+      <UniqueIdentifier>{0c322a0a-38af-4de6-a62a-f2261ccbef4e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="args.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="echo.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\arp.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\io.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mxx.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ncb.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\network.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\os.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\packet.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\tcp.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\udp.c">
+      <Filter>Resource Files\nshost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\avltree.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\cfifo.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\hash.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\logger.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\object.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\posix_ifos.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\posix_naos.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\posix_string.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\posix_thread.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\posix_time.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libnsp\com\posix_wait.c">
+      <Filter>Resource Files\com</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="args.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\io.h">
+      <Filter>Resource Files\nshost</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mxx.h">
+      <Filter>Resource Files\nshost</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ncb.h">
+      <Filter>Resource Files\nshost</Filter>
+    </ClInclude>
+    <ClInclude Include="..\network.h">
+      <Filter>Resource Files\nshost</Filter>
+    </ClInclude>
+    <ClInclude Include="..\os.h">
+      <Filter>Resource Files\nshost</Filter>
+    </ClInclude>
+    <ClInclude Include="..\packet.h">
+      <Filter>Resource Files\nshost</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\avltree.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\cfifo.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\clist.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\compatible.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\compiler.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\hash.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\logger.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\nis.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\nisdef.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\object.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_atomic.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_ifos.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_naos.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_string.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_thread.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_time.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libnsp\icom\posix_wait.h">
+      <Filter>Resource Files\icom</Filter>
+    </ClInclude>
+    <ClInclude Include="getopt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

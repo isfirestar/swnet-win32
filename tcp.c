@@ -815,7 +815,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 		return;
 	}
 
-	nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
+	mxx_call_ecr("IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
 
 	/* ncb object no longer effective, packet should freed rightnow */
 	if (tcprefr(packet->link, &ncb) < 0) {
@@ -825,8 +825,6 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 	}
 
 	do {
-		mxx_call_ecr("IO exception catched on type:%d, NTSTATUS:0x%08X, lnk:%I64d", packet->type_, status, packet->link);
-
 		/* link will be destroy,when the exception happen on the origin request without send.*/
 		if (kSend != packet->type_) {
 			tcp_shutdown_by_packet(packet);

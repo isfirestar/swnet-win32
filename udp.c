@@ -393,7 +393,8 @@ int __udp_tx_single_packet(ncb_t *ncb, const unsigned char *data, int cb, const 
 	offset = 0;
 
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr(r_ipstr);
+	/*addr.sin_addr.s_addr = inet_addr(r_ipstr); */
+	inet_pton(AF_INET, r_ipstr, &addr.sin_addr.S_un.S_addr);
 	addr.sin_port = htons(r_port);
 
 	while (offset < cb) {
@@ -800,7 +801,8 @@ PORTABLEIMPL(int) udp_joingrp(HUDPLINK lnk, const char *g_ipstr, uint16_t g_port
 		if ( !ncb->mreq ) {
 			break;
 		}
-        ncb->mreq->imr_multiaddr.s_addr = inet_addr(g_ipstr);
+        /* ncb->mreq->imr_multiaddr.s_addr = inet_addr(g_ipstr); */
+		inet_pton(AF_INET, g_ipstr, &ncb->mreq->imr_multiaddr.S_un.S_addr);
         ncb->mreq->imr_interface.s_addr = ncb->local_addr.sin_addr.s_addr;
 		retval = setsockopt(ncb->sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const void *)ncb->mreq, sizeof(struct ip_mreq));
         if (retval == SOCKET_ERROR){

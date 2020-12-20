@@ -101,7 +101,8 @@ PORTABLEIMPL(HARPLINK) arp_create(arp_io_callback_t callback, const char *source
 	ncb->nis_callback = callback;
 	ncb->sockfd = fd;
 	ncb->hld = hld;
-	ncb->local_addr.sin_addr.S_un.S_addr = inet_addr(source);
+	/*ncb->local_addr.sin_addr.S_un.S_addr = inet_addr(source);*/
+	inet_pton(AF_INET, source, &ncb->local_addr.sin_addr.S_un.S_addr);
 	get_eth_MAC(source, ncb->source_mac_);
 
 	objdefr(hld);
@@ -162,5 +163,6 @@ PORTABLEIMPL(int) arp_nrequest(HARPLINK link, uint32_t target)
 
 PORTABLEIMPL(int) arp_request(HARPLINK link, const char *target)
 {
-	return arp_nrequest(link, inet_addr(target));
+	/* return arp_nrequest(link, inet_addr(target)); */
+	return -1;
 }
