@@ -169,7 +169,7 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 		tcp_shutdown_by_packet(next_packet);
 	}
 
-	return 0; /* @packet MUST NOT free */
+	return retval;
 }
 
 static
