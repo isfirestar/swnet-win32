@@ -111,24 +111,18 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 		return -1;
 	}
 
+	retval = -1;
+	next_packet = NULL;
+
+	EnterCriticalSection(&ncb->tcp_sender_locker_);
+
 	do {
-		retval = -1;
-		next_packet = NULL;
-
-		EnterCriticalSection( &ncb->tcp_sender_locker_ );
-
 		/* user specify the definite packet buffer pointer,
 			but, current queue is not empty, it MUST add the packet to the tail of queue and pop the head element to send */
 		if (packet) {
-			/* examine the cached count, it MUST less than the restrict */
-			if ( InterlockedIncrement((volatile LONG *)&ncb->tcp_sender_list_size_) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK ) {
-				InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_list_size_);
-				mxx_call_ecr("pre-sent cache overflow, link:%I64d", ncb->hld);
-				break;
-			}
-
 			/* increase the cached count and than push item into the tail of queue */
 			list_add_tail(&packet->pkt_lst_entry_, &ncb->tcp_sender_cache_head_);
+			InterlockedIncrement((volatile LONG *)&ncb->tcp_sender_list_size_);
 		} else {
 			/* current queue cached nothing, or, all data have been sent */
 			if (list_empty(&ncb->tcp_sender_cache_head_)) {
@@ -143,16 +137,23 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 			double check to estimate whether the opportunity of send is right */
 		while (InterlockedIncrement((volatile LONG *)&ncb->tcp_write_pending_) > 1) {
 			if (InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_) > 0) {
-				LeaveCriticalSection(&ncb->tcp_sender_locker_);
-				return 0;
+				break;
 			}
 		}
 
 		/* the next packet should be remove from queue */
 		next_packet = list_first_entry(&ncb->tcp_sender_cache_head_, packet_t, pkt_lst_entry_);
+		/* detach first packet node from list */
 		list_del_init(&next_packet->pkt_lst_entry_);
 		/* cache count canbe decrease immediately */
 		InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_list_size_);
+
+		/* while error occur without IO_PENDING, the IOCP routine will not be trigger,
+		nshost module consider this is a unhandleable error and the TCP link will be disconnect immediately.
+		@tcp_shutdown_by_packet routine should release the owner memory save in @next_packet */
+		//if (asio_tcp_send(next_packet) < 0) {
+		//	tcp_shutdown_by_packet(next_packet);
+		//}
 	} while(0);
 
 	LeaveCriticalSection( &ncb->tcp_sender_locker_ );
@@ -669,20 +670,25 @@ void tcp_dispatch_io_send( packet_t *packet )
 
 	h = packet->link;
 	if (tcprefr(h, &ncb) < 0) {
-		nis_call_ecr("fail to reference link:%I64d", h);
+		mxx_call_ecr("fail to reference link:%I64d", h);
 		freepkt(packet);
 		return;
 	}
 
+	/* release the packet buffer */
+	EnterCriticalSection(&ncb->tcp_sender_locker_);
+	free(packet->irp_);
+	free(packet);
+	LeaveCriticalSection(&ncb->tcp_sender_locker_);
+	//freepkt(packet);
+
 	/* reduce the pending count(to zero) on this link */
-	InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
+	//InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
 
 	/* next write request MUST later than pending count decrease */
-	tcp_try_write( ncb, NULL );
+	//tcp_try_write( ncb, NULL );
 
-	/* release the packet buffer */
-	freepkt( packet );
-	objdefr( h );
+	//objdefr( h );
 }
 
 static
@@ -695,6 +701,8 @@ void tcp_dispatch_io_recv( packet_t * packet )
 		return;
 	}
 
+	assert(list_empty(&packet->pkt_lst_entry_));
+
 	/* 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接 */
 	if ( packet->size_for_translation_ <= 0 ) {
 		mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
@@ -703,7 +711,7 @@ void tcp_dispatch_io_recv( packet_t * packet )
 	}
 
 	if (tcprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("fail to reference link:%I64d", packet->link);
+		mxx_call_ecr("fail to reference link:%I64d", packet->link);
 		freepkt(packet);
 		return;
 	}
@@ -720,6 +728,8 @@ void tcp_dispatch_io_recv( packet_t * packet )
 			}
 		}
 
+		retval = 0;
+
 		/* 解析 TCP 包为符合协议规范的逻辑包 */
 		retval = tcp_prase_logic_packet( ncb, packet );
 		if ( retval < 0 ) {
@@ -730,7 +740,6 @@ void tcp_dispatch_io_recv( packet_t * packet )
 		/* 单次解包完成， 并不一定可以确认下次投递请求的偏移在缓冲区头部， 所以需要调整 */
 		packet->irp_ = ( void * ) ( ( char * ) packet->ori_buffer_ + packet->analyzed_offset_ );
 		packet->size_for_req_ = TCP_RECV_BUFFER_SIZE - packet->analyzed_offset_;
-
 	} while ( FALSE );
 
 	if ( retval >= 0 ) {
@@ -757,7 +766,7 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 	}
 
 	if (tcprefr(packet_connect->link, &ncb) < 0) {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_connected] fail to reference link:%I64d", packet_connect->link);
+		mxx_call_ecr("failed reference link:%I64d", packet_connect->link);
 		freepkt(packet_connect);
 		return;
 	}
@@ -819,7 +828,7 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 	/* ncb object no longer effective, packet should freed rightnow */
 	if (tcprefr(packet->link, &ncb) < 0) {
-		nis_call_ecr("[nshost.tcp.tcp_dispatch_io_exception] fail to reference link:%I64d", packet->link);
+		mxx_call_ecr("failed reference link:%I64d", packet->link);
 		freepkt(packet);
 		return;
 	}
@@ -841,11 +850,10 @@ void tcp_dispatch_io_exception( packet_t * packet, NTSTATUS status )
 
 		/* reduce pending packet count in current ncb context */
 		InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
-
 		/* release the current package */
 		freepkt(packet);
 		/* try post next package */
-		tcp_try_write(ncb, NULL);
+		//tcp_try_write(ncb, NULL);
 	} while (0);
 
 	objdefr(ncb->hld);
@@ -1272,6 +1280,7 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 	packet_t *packet;
 	int total_packet_length;
 	int retval;
+	int n;
 
 	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb > TCP_MAXIMUM_PACKET_SIZE || !origin) {
 		return -1;
@@ -1288,70 +1297,87 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 	}
 
 	do {
-		/* shift check cached count */
-		if (InterlockedExchangeAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
-			mxx_call_ecr("pre-sent cache overflow, link:%I64d", lnk);
-			break;
-		}
+		/* examine the cached count, it MUST less than the restrict right now.
+			for multiple threading reason, the real size maybe large than restrict size*/
+		//if ( InterlockedAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
+		//	mxx_call_ecr("pre-sent cache overflow, link:%I64d", lnk);
+		//	break;
+		//}
 
-		if ((!ncb->tcp_tst_.builder_) || (ncb->attr & LINKATTR_TCP_NO_BUILD)) {
-			total_packet_length = cb;
-			/* the protocol builder are not specified, @tcp_write proc has responsibility to fill the packet buffer */
-			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
-				break;
-			}
+		//if ( ( n = InterlockedAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0)) >= 2) {
+		//	mxx_call_ecr("%d pending in list, link:%I64d", n, lnk );
+		//	break;
+		//}
 
-			if (serializer) {
-				if (serializer(buffer, origin, cb) < 0) {
-					break;
-				}
-			} else {
-				memcpy(buffer, origin, cb);
-			}
-		} else {
+		//if ((!ncb->tcp_tst_.builder_) || (ncb->attr & LINKATTR_TCP_NO_BUILD)) {
+		//	total_packet_length = cb;
+		//	/* the protocol builder are not specified, @tcp_write proc has responsibility to fill the packet buffer */
+		//	if (NULL == (buffer = (char *)malloc(total_packet_length))) {
+		//		break;
+		//	}
+
+		//	if (serializer) {
+		//		if (serializer(buffer, origin, cb) < 0) {
+		//			break;
+		//		}
+		//	} else {
+		//		memcpy(buffer, origin, cb);
+		//	}
+		//} else {
 			total_packet_length = ncb->tcp_tst_.cb_ + cb;
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
 				break;
 			}
+			//mxx_call_ecr("allocate buffer;%p", buffer);
 
 			/* pass the buffer to the protocol builder */
 			if (ncb->tcp_tst_.builder_(buffer, cb) < 0) {
 				break;
 			}
 
-			if (serializer) {
-				if (serializer(buffer + ncb->tcp_tst_.cb_, origin, cb - ncb->tcp_tst_.cb_) < 0) {
-					break;
-				}
-			} else {
+			//if (serializer) {
+			//	if (serializer(buffer + ncb->tcp_tst_.cb_, origin, cb - ncb->tcp_tst_.cb_) < 0) {
+			//		break;
+			//	}
+			//} else {
+			assert(8 == ncb->tcp_tst_.cb_);
 				memcpy(buffer + ncb->tcp_tst_.cb_, origin, cb);
-			}
-		}
+			//}
+		//}
 
 		/* allocate the package */
 		if ( allocate_packet( ( objhld_t ) lnk, kProto_TCP, kSend, 0, kNoAccess, &packet ) < 0 ) {
 			break;
 		}
-		packet->ori_buffer_ = packet->irp_ = buffer;
+		//mxx_call_ecr("allocate packet;%p", packet);
+		packet->ori_buffer_ = buffer;
+		packet->irp_ = buffer;
 		packet->size_for_req_ = total_packet_length;
 
 		/* try to write this packet to network adpater or cache it into low-level queue */
-		if ( (retval = tcp_try_write(ncb, packet) ) < 0) {
-			freepkt( packet );
-			packet = NULL;
-			buffer = NULL;
+		//retval = tcp_try_write(ncb, packet);
+		//retval = send(ncb->sockfd, packet->ori_buffer_, packet->size_for_req_, 0);
+		//retval = -1;
+		EnterCriticalSection(&ncb->tcp_sender_locker_);
+		if ((retval = asio_tcp_send(packet)) < 0) {
+			//tcp_shutdown_by_packet(packet);
 		}
+		LeaveCriticalSection(&ncb->tcp_sender_locker_);
 	} while ( FALSE );
 
-	if (retval < 0) {
-		if (buffer) {
-			free(buffer);
-			buffer = NULL;
-		}
-	}
+	//if (retval < 0) {
+	//	if (packet) {
+	//		freepkt(packet);
+	//	} else {
+	//		if (buffer) {
+	//			free(buffer);
+	//			buffer = NULL;
+	//		}
+	//	}
+	//}
 
 	objdefr(ncb->hld);
-	return retval;
+	return 0;
 }
 
 PORTABLEIMPL(int) tcp_getaddr( HTCPLINK lnk, int nType, uint32_t *ipv4, uint16_t *port )

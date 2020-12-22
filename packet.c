@@ -7,18 +7,20 @@
 int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t type, int cbSize, enum page_style_t page_style, packet_t **output )
 {
 	packet_t *packet;
-	int retval = -1;
-	void *p_buffer = NULL;
+	void *p_buffer;
 
 	if (!output || h < 0) {
 		return -1;
 	}
+
+	p_buffer = NULL;
 
 	packet = ( packet_t * ) malloc( sizeof( packet_t ) );
 	if ( !packet ) {
 		mxx_call_ecr("fail to allocate memory for packet.");
 		return -1;
 	}
+	memset(packet, 0, sizeof(packet_t));
 
 	do {
 		// 如果不需要填写数据长度， 则由调用线程自行安排包中的数据指针指向
@@ -47,7 +49,6 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 			}
 		}
 
-		memset( &packet->overlapped_, 0, sizeof( packet->overlapped_ ) );
 		packet->type_ = type;
 		packet->proto_type = proto_type;
 		packet->page_style_ = page_style;
@@ -55,12 +56,7 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 		packet->from_length_ = sizeof( struct sockaddr_in );
 		packet->link = h;
 		packet->accepted_link = -1;
-		if ( kProto_TCP == proto_type ) {
-			INIT_LIST_HEAD( &packet->pkt_lst_entry_ );
-		} else if ( kProto_UDP == proto_type ) {
-			memset( &packet->remote_addr, 0, sizeof( struct sockaddr_in ) );
-			memset( &packet->local_addr, 0, sizeof( struct sockaddr_in ) );
-		}
+		INIT_LIST_HEAD(&packet->pkt_lst_entry_);
 		packet->size_for_req_ = cbSize;
 		packet->size_for_translation_ = 0;
 		packet->size_completion_ = 0;
@@ -93,6 +89,7 @@ void freepkt( packet_t * packet )
 				packet->grp_packets_cnt_ = 0;
 			} else {
 				if (packet->ori_buffer_) {
+					mxx_call_ecr("free buffer:%p", packet->ori_buffer_);
 					free(packet->ori_buffer_);
 					packet->ori_buffer_ = NULL;
 				}
@@ -111,6 +108,7 @@ void freepkt( packet_t * packet )
 	}
 
 	packet->irp_ = NULL;
+	mxx_call_ecr("free packet:%p", packet);
 	free( packet );
 }
 
@@ -160,7 +158,7 @@ int asio_tcp_accept( packet_t * packet )
 
 int asio_tcp_send( packet_t *packet )
 {
-	WSABUF wsb[1];
+	//WSABUF wsb[1];
 	int retval;
 	ncb_t *ncb;
 
@@ -173,16 +171,10 @@ int asio_tcp_send( packet_t *packet )
 		return -1;
 	}
 
-	wsb[0].len = packet->size_for_req_;
-	wsb[0].buf = ( CHAR * ) packet->irp_;
+	packet->wsb[0].len = packet->size_for_req_;
+	packet->wsb[0].buf = (CHAR *)packet->irp_;
 
-	retval = WSASend( ncb->sockfd, wsb, 1, &packet->size_completion_,
-#if USES_LOCAL_ROUTE_TABLE
-		0,
-#else
-		MSG_DONTROUTE,
-#endif
-		&packet->overlapped_, NULL );
+	retval = WSASend(ncb->sockfd, packet->wsb, 1, &packet->size_completion_, 0 , &packet->overlapped_, NULL);
 	if ( retval == SOCKET_ERROR ) {
 		retval = -1;
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
@@ -190,6 +182,10 @@ int asio_tcp_send( packet_t *packet )
 		} else {
 			mxx_call_ecr("syscall WSASend failed,error code=%u, link:%I64d", WSAGetLastError(), ncb->hld);
 		}
+	}
+
+	if (0 == retval) {
+		;
 	}
 
 	objdefr( ncb->hld );

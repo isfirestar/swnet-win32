@@ -81,7 +81,7 @@ void STDCALL tcp_client_callback(const struct nis_event *event, const void *data
 				display(event->Ln.Tcp.Link, tcpdata->e.Packet.Data, tcpdata->e.Packet.Size);
 				printf("input:$ ");
 			} else {
-				tcp_write(event->Ln.Tcp.Link, tcpdata->e.Packet.Data, tcpdata->e.Packet.Size, NULL);
+				//tcp_write(event->Ln.Tcp.Link, tcpdata->e.Packet.Data, tcpdata->e.Packet.Size, NULL);
 			}
 			break;
 		case EVT_TCP_CONNECTED:
@@ -137,8 +137,11 @@ void *start_routine(void *p)
 
 	client = *(HTCPLINK *)p;
 
+	ECHO("echo", "independence WLP:%d", GetCurrentThreadId());
+
 	memset(text, 0, sizeof(text));
 	while (tcp_write(client, text, MAX_LOOP_MESG, NULL) >= 0) {
+		tcp_write(client, text, MAX_LOOP_MESG, NULL);
 		posix__delay_execution(100 * 1000);
 	}
 	return NULL;
@@ -163,25 +166,29 @@ int echo_client_startup()
 	assert(clients);
 	tids = (posix__pthread_t *)malloc(threads * sizeof(posix__pthread_t));
 	assert(tids);
-	
+
 	tst.parser_ = &nsp__tst_parser;
 	tst.builder_ = &nsp__tst_builder;
 	tst.cb_ = sizeof(nsp__tst_head_t);
 
 	for (i = 0; i < threads; i++) {
 		clients[i] = tcp_create(&tcp_client_callback, NULL, 0);
-		if (INVALID_HTCPLINK != clients[i]) {
-			
-			nis_cntl(clients[i], NI_SETTST, &tst);
+		if (INVALID_HTCPLINK == clients[i]) {
+			continue;
+		}
 
-			if (tcp_connect(clients[i], gethost(), getport()) < 0) {
-				tcp_destroy(clients[i]);
+		nis_cntl(clients[i], NI_SETTST, &tst);
+		if (tcp_connect(clients[i], gethost(), getport()) < 0) {
+			tcp_destroy(clients[i]);
+			continue;
+		}
+
+		if (loop) {
+			if ( getindependence() ) {
+				posix__pthread_create(&tids[i], &start_routine, &clients[i]);
 			} else {
-				if (loop) {
-					//memset(text, 0, sizeof(text));
-					//tcp_write(clients[i], text, MAX_LOOP_MESG, NULL);
-					posix__pthread_create(&tids[i], &start_routine, &clients[i]);
-				}
+				memset(text, 0, sizeof(text));
+				tcp_write(clients[i], text, MAX_LOOP_MESG, NULL);
 			}
 		}
 	}
@@ -216,8 +223,8 @@ int main(int argc, char **argv)
 	}
 
 	log__init();
-	tcp_init();
 	nis_checr(&nshost_ecr);
+	tcp_init();
 
 	if (type == SESS_TYPE_SERVER) {
 		return echo_server_startup();

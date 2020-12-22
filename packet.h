@@ -34,25 +34,18 @@ typedef struct _NCC_PACKET {
 	int from_length_;				// 保存fromlen
 	objhld_t link;					// 控制块的句柄
 	objhld_t accepted_link;			// 用于 tcp accept 的对端对象句柄
-	union {
-		struct {						// 对 UDP 对象， 存储发送目标地址
-			struct sockaddr_in remote_addr;
-			struct sockaddr_in local_addr;
-		};
-		struct list_head pkt_lst_entry_;	// 对 TCP 发送对象的 ncb_t::tcp_waitting_list_head_ 钩链(每个包都是一个节点)
-	};
+	struct sockaddr_in remote_addr;	/* 对端地址结构 */
+	struct sockaddr_in local_addr;	/* 本地地址结构 */
+	struct list_head pkt_lst_entry_;	// 对 TCP 发送对象的 ncb_t::tcp_waitting_list_head_ 钩链(每个包都是一个节点)
 	int size_for_req_;				// 投递请求前的， 缓冲区长度
 	int size_for_translation_;		// 交换字节数
 	int size_completion_;			// 投递给系统用于接收完成长度的字段， 区别于 size_for_translation_, 此字段并不建议使用
 	int analyzed_offset_;			// 保存 TCP 解包过程中的原始地址偏移解析
 	void *ori_buffer_;				// 原始数据指针， 因为irp_字段可能因为投递给系统的指针移动而变化， 因此原始地址需要记录
-	union {
-		struct {
-			PTRANSMIT_PACKETS_ELEMENT grp_packets_; // 当使用 grp 方式进行发送操作， 则缓冲区位于此数组内, 但是packet模块不负责这些具体内存的管理工作
-			int grp_packets_cnt_;
-		};
-		void *irp_;			// 用户数据指针, 实际的IRP内存地址
-	};
+	PTRANSMIT_PACKETS_ELEMENT grp_packets_; // 当使用 grp 方式进行发送操作， 则缓冲区位于此数组内, 但是packet模块不负责这些具体内存的管理工作
+	int grp_packets_cnt_;
+	void *irp_;			// 用户数据指针, 实际的IRP内存地址
+	WSABUF wsb[1];
 }packet_t;
 
 int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t type, int cbSize, enum page_style_t page_style, packet_t **output_packet );
