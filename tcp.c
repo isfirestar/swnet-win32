@@ -147,13 +147,6 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 		list_del_init(&next_packet->pkt_lst_entry_);
 		/* cache count canbe decrease immediately */
 		InterlockedDecrement((volatile LONG *)&ncb->tcp_sender_list_size_);
-
-		/* while error occur without IO_PENDING, the IOCP routine will not be trigger,
-		nshost module consider this is a unhandleable error and the TCP link will be disconnect immediately.
-		@tcp_shutdown_by_packet routine should release the owner memory save in @next_packet */
-		//if (asio_tcp_send(next_packet) < 0) {
-		//	tcp_shutdown_by_packet(next_packet);
-		//}
 	} while(0);
 
 	LeaveCriticalSection( &ncb->tcp_sender_locker_ );
@@ -166,11 +159,20 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 	/* while error occur without IO_PENDING, the IOCP routine will not be trigger,
 		nshost module consider this is a unhandleable error and the TCP link will be disconnect immediately.
 		@tcp_shutdown_by_packet routine should release the owner memory save in @next_packet */
-	if (asio_tcp_send(next_packet) < 0) {
+	retval = asio_tcp_send(next_packet);
+	switch (retval)
+	{
+	case IOR_SHUTDOWN:
 		tcp_shutdown_by_packet(next_packet);
+		break;
+	case IOR_CAN_FREE:
+		freepkt(next_packet);
+		break;
+	default:
+		break;
 	}
 
-	return retval;
+	return 0;
 }
 
 static
@@ -625,22 +627,31 @@ void tcp_dispatch_io_syn( packet_t * packet )
 		return;
 	}
 
-	/* 后续操作不依赖于远端对象的引用成功， 即远端对象即使引用失败， 也不影响下个accept请求的投递 */
-	if (tcprefr(packet->accepted_link, &ncb_accepted) >= 0) {
-		retval = tcp_syn_copy( ncb_listen, ncb_accepted, packet );
-		if ( retval >= 0 ) {
-			retval = allocate_packet(ncb_accepted->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kVirtualHeap, &packet_recv);
-			if ( retval >= 0 ) {
-				retval = asio_tcp_recv(packet_recv);
-			}
+	ncb_accepted  = NULL;
+	do {
+		/* 后续操作不依赖于远端对象的引用成功， 即远端对象即使引用失败， 也不影响下个accept请求的投递 */
+		if (tcprefr(packet->accepted_link, &ncb_accepted) < 0) {
+			break;
 		}
 
-		// 此处增加特殊处理， 即使没有成功投递接收请求， 也不应该影响投递下一个ACCEPT请求
-		// 但是如果RECV请求无法正确投递， 可以关闭当前ACCEPT上来的链接
-		if ( retval < 0 ) {
+		retval = tcp_syn_copy(ncb_listen, ncb_accepted, packet);
+		if (retval < 0) {
 			objclos(ncb_accepted->hld);
+			break;
 		}
 
+		retval = allocate_packet(ncb_accepted->hld, kProto_TCP, kRecv, TCP_RECV_BUFFER_SIZE, kVirtualHeap, &packet_recv);
+		if (retval < 0) {
+			objclos(ncb_accepted->hld);
+			break;
+		}
+
+		if (IOR_SHUTDOWN == asio_tcp_recv(packet_recv)){
+			tcp_shutdown_by_packet(packet_recv);
+		}
+	} while (0);
+
+	if (ncb_accepted) {
 		objdefr(ncb_accepted->hld);
 	}
 
@@ -664,31 +675,31 @@ void tcp_dispatch_io_send( packet_t *packet )
 	/* translate bytes is zero, the only legal situation is TCP-SYN completed, all the other situation regard as fatal error, link will is going to destroy */
 	if ( packet->size_for_translation_ <= 0 ) {
 		mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
-		tcp_shutdown_by_packet( packet );
+		if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
+			tcp_shutdown_by_packet(packet);
+		}
 		return;
 	}
 
 	h = packet->link;
 	if (tcprefr(h, &ncb) < 0) {
 		mxx_call_ecr("fail to reference link:%I64d", h);
-		freepkt(packet);
+		if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
+			freepkt(packet);
+		}
 		return;
 	}
 
 	/* release the packet buffer */
-	EnterCriticalSection(&ncb->tcp_sender_locker_);
-	free(packet->irp_);
-	free(packet);
-	LeaveCriticalSection(&ncb->tcp_sender_locker_);
-	//freepkt(packet);
+	if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
+		freepkt(packet);
+	}
 
 	/* reduce the pending count(to zero) on this link */
-	//InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
-
+	InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_);
 	/* next write request MUST later than pending count decrease */
-	//tcp_try_write( ncb, NULL );
-
-	//objdefr( h );
+	tcp_try_write( ncb, NULL );
+	objdefr( h );
 }
 
 static
@@ -706,13 +717,17 @@ void tcp_dispatch_io_recv( packet_t * packet )
 	/* 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接 */
 	if ( packet->size_for_translation_ <= 0 ) {
 		mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
-		tcp_shutdown_by_packet( packet );
+		if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
+			tcp_shutdown_by_packet(packet);
+		}
 		return;
 	}
 
 	if (tcprefr(packet->link, &ncb) < 0) {
 		mxx_call_ecr("fail to reference link:%I64d", packet->link);
-		freepkt(packet);
+		if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
+			freepkt(packet);
+		}
 		return;
 	}
 
@@ -743,12 +758,12 @@ void tcp_dispatch_io_recv( packet_t * packet )
 	} while ( FALSE );
 
 	if ( retval >= 0 ) {
-		retval = asio_tcp_recv( packet );
-	}
-
-	if ( retval < 0 ) {
-		objclos(ncb->hld);
-		freepkt( packet );
+		/* ignore anyother return values,
+			IOR_CAN_FREE: receive packet should not be free.
+			IOR_SYSERR: waitting for shutdown message trigger */
+		if (IOR_SHUTDOWN == (retval = asio_tcp_recv(packet))) {
+			tcp_shutdown_by_packet(packet);
+		}
 	}
 
 	objdefr(ncb->hld);
@@ -760,19 +775,24 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 	packet_t *packet_recv;
 	struct sockaddr_in addr;
 	int addrlen;
+	objhld_t link;
 
 	if (!packet_connect) {
 		return;
 	}
 
-	if (tcprefr(packet_connect->link, &ncb) < 0) {
-		mxx_call_ecr("failed reference link:%I64d", packet_connect->link);
+	packet_recv = NULL;
+	link = packet_connect->link;
+
+	/* connect packet nolonger use */
+	if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet_connect->iopp_)) {
 		freepkt(packet_connect);
-		return;
 	}
 
-	freepkt(packet_connect);
-	packet_recv = NULL;
+	if (tcprefr(link, &ncb) < 0) {
+		mxx_call_ecr("failed reference link:%I64d", link);
+		return;
+	}
 
 	do {
 		/* 如果本地采取随机地址结构或端口， 则需要取得唯一生效的地址结构和端口 */
@@ -780,7 +800,6 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 			addrlen = sizeof(addr);
 			if (getsockname(ncb->sockfd, (struct sockaddr *)&addr, &addrlen) >= 0) {
 				ncb->local_addr.sin_port = addr.sin_port;
-
 				/*为了保持兼容性， 这里转换地址为大端*/
 				ncb->local_addr.sin_addr.S_un.S_addr = ntohl(addr.sin_addr.S_un.S_addr);
 			}
@@ -798,7 +817,7 @@ void tcp_dispatch_io_connected(packet_t * packet_connect){
 			break;
 		}
 
-		if (asio_tcp_recv(packet_recv) < 0) {
+		if (IOR_SHUTDOWN == asio_tcp_recv(packet_recv)) {
 			mxx_call_ecr("asio_tcp_recv failed,link:%I64d", ncb->hld);
 			tcp_shutdown_by_packet(packet_recv);
 			break;
@@ -1083,7 +1102,9 @@ PORTABLEIMPL(int) tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port 
 {
 	ncb_t *ncb;
 	struct sockaddr_in r_addr;
-	packet_t * packet = NULL;
+	packet_t *packet ;
+
+	packet = NULL;
 
 	if (!r_ipstr || 0 == port) {
 		return -EINVAL;
@@ -1122,7 +1143,8 @@ PORTABLEIMPL(int) tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port 
 			break;
 		}
 
-		if ( asio_tcp_recv( packet ) < 0 ) {
+		if ( IOR_SHUTDOWN == asio_tcp_recv(packet) ) {
+			tcp_shutdown_by_packet(packet);
 			break;
 		}
 
@@ -1131,14 +1153,9 @@ PORTABLEIMPL(int) tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port 
 		ncb->remote_addr.sin_port = htons( port );
 
 		objdefr(ncb->hld);
-
 		return 0;
 
 	} while ( FALSE );
-
-	if (packet) {
-		freepkt( packet );
-	}
 
 	objdefr(ncb->hld);
 	return -1;
@@ -1299,51 +1316,44 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 	do {
 		/* examine the cached count, it MUST less than the restrict right now.
 			for multiple threading reason, the real size maybe large than restrict size*/
-		//if ( InterlockedAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
-		//	mxx_call_ecr("pre-sent cache overflow, link:%I64d", lnk);
-		//	break;
-		//}
+		if ( InterlockedAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0) >= TCP_MAXIMUM_SENDER_CACHED_CNT_PRE_LINK) {
+			mxx_call_ecr("pre-sent cache overflow, link:%I64d", lnk);
+			break;
+		}
 
-		//if ( ( n = InterlockedAdd((volatile LONG *)&ncb->tcp_sender_list_size_, 0)) >= 2) {
-		//	mxx_call_ecr("%d pending in list, link:%I64d", n, lnk );
-		//	break;
-		//}
+		if ((!ncb->tcp_tst_.builder_) || (ncb->attr & LINKATTR_TCP_NO_BUILD)) {
+			total_packet_length = cb;
+			/* the protocol builder are not specified, @tcp_write proc has responsibility to fill the packet buffer */
+			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
+				break;
+			}
 
-		//if ((!ncb->tcp_tst_.builder_) || (ncb->attr & LINKATTR_TCP_NO_BUILD)) {
-		//	total_packet_length = cb;
-		//	/* the protocol builder are not specified, @tcp_write proc has responsibility to fill the packet buffer */
-		//	if (NULL == (buffer = (char *)malloc(total_packet_length))) {
-		//		break;
-		//	}
-
-		//	if (serializer) {
-		//		if (serializer(buffer, origin, cb) < 0) {
-		//			break;
-		//		}
-		//	} else {
-		//		memcpy(buffer, origin, cb);
-		//	}
-		//} else {
+			if (serializer) {
+				if (serializer(buffer, origin, cb) < 0) {
+					break;
+				}
+			} else {
+				memcpy(buffer, origin, cb);
+			}
+		} else {
 			total_packet_length = ncb->tcp_tst_.cb_ + cb;
 			if (NULL == (buffer = (char *)malloc(total_packet_length))) {
 				break;
 			}
-			//mxx_call_ecr("allocate buffer;%p", buffer);
 
 			/* pass the buffer to the protocol builder */
 			if (ncb->tcp_tst_.builder_(buffer, cb) < 0) {
 				break;
 			}
 
-			//if (serializer) {
-			//	if (serializer(buffer + ncb->tcp_tst_.cb_, origin, cb - ncb->tcp_tst_.cb_) < 0) {
-			//		break;
-			//	}
-			//} else {
-			assert(8 == ncb->tcp_tst_.cb_);
+			if (serializer) {
+				if (serializer(buffer + ncb->tcp_tst_.cb_, origin, cb - ncb->tcp_tst_.cb_) < 0) {
+					break;
+				}
+			} else {
 				memcpy(buffer + ncb->tcp_tst_.cb_, origin, cb);
-			//}
-		//}
+			}
+		}
 
 		/* allocate the package */
 		if ( allocate_packet( ( objhld_t ) lnk, kProto_TCP, kSend, 0, kNoAccess, &packet ) < 0 ) {
@@ -1355,26 +1365,19 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 		packet->size_for_req_ = total_packet_length;
 
 		/* try to write this packet to network adpater or cache it into low-level queue */
-		//retval = tcp_try_write(ncb, packet);
-		//retval = send(ncb->sockfd, packet->ori_buffer_, packet->size_for_req_, 0);
-		//retval = -1;
-		EnterCriticalSection(&ncb->tcp_sender_locker_);
-		if ((retval = asio_tcp_send(packet)) < 0) {
-			//tcp_shutdown_by_packet(packet);
-		}
-		LeaveCriticalSection(&ncb->tcp_sender_locker_);
+		retval = tcp_try_write(ncb, packet);
 	} while ( FALSE );
 
-	//if (retval < 0) {
-	//	if (packet) {
-	//		freepkt(packet);
-	//	} else {
-	//		if (buffer) {
-	//			free(buffer);
-	//			buffer = NULL;
-	//		}
-	//	}
-	//}
+	if (retval < 0) {
+		if (packet) {
+			freepkt(packet);
+		} else {
+			if (buffer) {
+				free(buffer);
+				buffer = NULL;
+			}
+		}
+	}
 
 	objdefr(ncb->hld);
 	return 0;

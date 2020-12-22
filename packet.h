@@ -25,6 +25,19 @@ enum page_style_t {
 	kNonPagedPool,
 };
 
+enum page_phase_t
+{
+	kPagePhase_InUse = 0,
+	kPagePhase_ReleaseWait,
+	kPagePhase_CanbeFree,
+};
+
+#define IOR_SYSERR		(-2)
+#define IOR_SHUTDOWN	(-1)
+#define IOR_NORMAL		(0)
+#define IOR_CAN_FREE	(1)
+#define IOR_SUCCESS(ior)	((ior) >= 0)
+
 typedef struct _NCC_PACKET {
 	OVERLAPPED overlapped_;
 	enum pkt_type_t type_;		// 区别收包发包
@@ -45,6 +58,7 @@ typedef struct _NCC_PACKET {
 	PTRANSMIT_PACKETS_ELEMENT grp_packets_; // 当使用 grp 方式进行发送操作， 则缓冲区位于此数组内, 但是packet模块不负责这些具体内存的管理工作
 	int grp_packets_cnt_;
 	void *irp_;			// 用户数据指针, 实际的IRP内存地址
+	enum page_phase_t iopp_;
 	WSABUF wsb[1];
 }packet_t;
 
