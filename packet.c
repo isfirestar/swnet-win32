@@ -116,8 +116,8 @@ void freepkt( packet_t * packet )
 int asio_tcp_accept( packet_t * packet )
 {
 	NTSTATUS status;
-	ncb_t * ncb_listen;
-	ncb_t * ncb_income;
+	ncb_t *ncb_listen;
+	ncb_t *ncb_income;
 	static GUID GUID_ACCEPTEX = WSAID_ACCEPTEX;
 	LPFN_ACCEPTEX WSAAcceptEx = NULL;
 	uint32_t bytes_return = 0;
@@ -315,7 +315,6 @@ int asio_tcp_connect(packet_t *packet)
 ////////////////////////////////////////////////////////////////////// UDP //////////////////////////////////////////////////////////////////////
 int asio_udp_recv( packet_t * packet )
 {
-	WSABUF wsb[1];
 	int retval = 0;
 	ncb_t *ncb;
 
@@ -328,10 +327,10 @@ int asio_udp_recv( packet_t * packet )
 		return -1;
 	}
 
-	wsb[0].len = packet->size_for_req_;
-	wsb[0].buf = ( CHAR * ) packet->irp_;
+	packet->wsb[0].len = packet->size_for_req_;
+	packet->wsb[0].buf = ( CHAR * ) packet->irp_;
 
-	retval = WSARecvFrom(ncb->sockfd, wsb, 1, &packet->size_completion_, &packet->flag_,
+	retval = WSARecvFrom(ncb->sockfd, packet->wsb, 1, &packet->size_completion_, &packet->flag_,
 		( struct sockaddr * )&packet->remote_addr, &packet->from_length_, &packet->overlapped_, NULL );
 	if (retval == SOCKET_ERROR) {
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
@@ -348,7 +347,6 @@ int asio_udp_recv( packet_t * packet )
 
 int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port )
 {
-	WSABUF wsb[1];
 	int retval;
 	ncb_t * ncb;
 
@@ -368,11 +366,11 @@ int syio_udp_send( packet_t * packet, const char *r_ipstr, uint16_t r_port )
 	packet->remote_addr.sin_family = AF_INET;
 	packet->remote_addr.sin_port = htons( r_port );
 
-	wsb[0].len = packet->size_for_req_;
-	wsb[0].buf = ( CHAR * ) packet->irp_;
+	packet->wsb[0].len = packet->size_for_req_;
+	packet->wsb[0].buf = ( CHAR * ) packet->irp_;
 
 	retval = 0;
-	retval = WSASendTo(ncb->sockfd, wsb, 1, &packet->size_completion_, 0,//MSG_DONTROUTE,
+	retval = WSASendTo(ncb->sockfd, packet->wsb, 1, &packet->size_completion_, 0,//MSG_DONTROUTE,
 		( const struct sockaddr * )&packet->remote_addr, sizeof( struct sockaddr ), NULL, NULL );
 	if (retval == SOCKET_ERROR) {
 		retval = -1;

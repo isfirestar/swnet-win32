@@ -624,6 +624,9 @@ void tcp_dispatch_io_syn( packet_t * packet )
 
 	if (tcprefr(packet->link, &ncb_listen) < 0) {
 		mxx_call_ecr("fail to reference link:%I64d", packet->link);
+		if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
+			freepkt(packet);
+		}
 		return;
 	}
 
@@ -650,6 +653,10 @@ void tcp_dispatch_io_syn( packet_t * packet )
 			tcp_shutdown_by_packet(packet_recv);
 		}
 	} while (0);
+
+	if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
+		freepkt(packet);
+	}
 
 	if (ncb_accepted) {
 		objdefr(ncb_accepted->hld);
