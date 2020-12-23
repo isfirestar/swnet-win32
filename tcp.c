@@ -160,16 +160,10 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 		nshost module consider this is a unhandleable error and the TCP link will be disconnect immediately.
 		@tcp_shutdown_by_packet routine should release the owner memory save in @next_packet */
 	retval = asio_tcp_send(next_packet);
-	switch (retval)
-	{
-	case IOR_SHUTDOWN:
+	if (IOR_SHUTDOWN == retval) {
 		tcp_shutdown_by_packet(next_packet);
-		break;
-	case IOR_CAN_FREE:
+	} else if (IOR_CAN_FREE == retval) {
 		freepkt(next_packet);
-		break;
-	default:
-		break;
 	}
 
 	return 0;
@@ -503,18 +497,22 @@ objhld_t tcp_allocate_object(const tcp_cinit_t *ctx)
 }
 
 static
-int tcp_syn( ncb_t * ncb_listen )
+int tcp_accept(ncb_t * ncb_listen)
 {
-	packet_t *syn_packet;
-	objhld_t h;
+	packet_t *accept_packet;
+	objhld_t remote_link;
 	tcp_cinit_t ctx;
-	int i = 0;
+	int i;
+	int retval;
+
+	accept_packet = NULL;
+	i = 0;
 
 	if (!ncb_listen) {
 		return -1;
 	}
 
-	if ( allocate_packet( ncb_listen->hld, kProto_TCP, kSyn, TCP_ACCEPT_EXTENSION_SIZE, kVirtualHeap, &syn_packet ) < 0 ) {
+	if (allocate_packet(ncb_listen->hld, kProto_TCP, kSyn, TCP_ACCEPT_EXTENSION_SIZE, kVirtualHeap, &accept_packet) < 0) {
 		return -1;
 	}
 
@@ -523,26 +521,30 @@ int tcp_syn( ncb_t * ncb_listen )
 		ctx.ip_ = 0;
 		ctx.port_ = 0;
 		ctx.callback_ = ncb_listen->nis_callback;
-		h = tcp_allocate_object( &ctx );
-		if ( h < 0 ) {
+		remote_link = tcp_allocate_object(&ctx);
+		if (remote_link < 0) {
 			break;
 		}
 
-		// 还是继续沿用当前接收包的内存
-		syn_packet->accepted_link = h;
+		/* using handle of new ncb object for accept IO */
+		accept_packet->accepted_link = remote_link;
 
-		// 继续抛送接收链接请求
-		if (asio_tcp_accept(syn_packet) >= 0) {
-			return 0;
+		/* post accept to asynchronous pool */
+		retval = asio_tcp_accept(accept_packet);
+		if (IOR_CAN_FREE == retval) {
+			freepkt(accept_packet);
+		} else if (IOR_SHUTDOWN == retval) {
+			tcp_shutdown_by_packet(accept_packet);
 		}
 
-		// 投递接受链接请求需要保证成功完成
-		// 如果失败， 则关闭本次失败的对端链接， 继续投递接受请求
-		objclos( h );
-
+		return 0;
 	} while ( i++ < TCP_SYN_REQ_TIMES );
 
 	objclos( ncb_listen->hld );
+
+	if (accept_packet) {
+		freepkt(accept_packet);
+	}
 	return -1;
 }
 
@@ -611,7 +613,7 @@ int tcp_syn_copy( ncb_t * ncb_listen, ncb_t * ncb_accepted, packet_t * packet )
 	3. 接收获得的远端套接字应该赋值本地监听套接字的属性
 	4. 接收缓冲区与套接字关联， 这里是远端套接字生成其唯一窗口中唯一接收缓冲区的唯一接口点 */
 static
-void tcp_dispatch_io_syn( packet_t * packet )
+void tcp_dispatch_io_accepted( packet_t * packet )
 {
 	ncb_t * ncb_listen;
 	ncb_t * ncb_accepted;
@@ -623,7 +625,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 	}
 
 	if (tcprefr(packet->link, &ncb_listen) < 0) {
-		mxx_call_ecr("fail to reference link:%I64d", packet->link);
+		mxx_call_ecr("fail to reference listen link:%I64d", packet->link);
 		if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
 			freepkt(packet);
 		}
@@ -649,6 +651,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 			break;
 		}
 
+		/* ingore free event, because this piece of memory need reuse. */
 		if (IOR_SHUTDOWN == asio_tcp_recv(packet_recv)){
 			tcp_shutdown_by_packet(packet_recv);
 		}
@@ -662,7 +665,7 @@ void tcp_dispatch_io_syn( packet_t * packet )
 		objdefr(ncb_accepted->hld);
 	}
 
-	if ( tcp_syn( ncb_listen ) < 0 ) {
+	if (tcp_accept(ncb_listen) < 0) {
 		objclos(ncb_listen->hld);
 	}
 
@@ -719,9 +722,10 @@ void tcp_dispatch_io_recv( packet_t * packet )
 		return;
 	}
 
-	assert(list_empty(&packet->pkt_lst_entry_));
+	/* increase the IO phase, but didn't do any more operations in receive proc */
+	InterlockedIncrement((volatile LONG *)&packet->iopp_);
 
-	/* 交换字节数为0的情况， 只能是TCP ACCEPT完成， 其他情况认为是致命错误， 将关闭链接 */
+	/* count of exchange bytes less than or equal to zero meat a error, for example: remote link disconnected. */
 	if ( packet->size_for_translation_ <= 0 ) {
 		mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
 		if (kPagePhase_CanbeFree == InterlockedIncrement((volatile LONG *)&packet->iopp_)) {
@@ -899,7 +903,7 @@ void tcp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 
 	switch ( packet->type_ ) {
 		case kSyn:
-			tcp_dispatch_io_syn( packet );
+			tcp_dispatch_io_accepted(packet);
 			break;
 		case kRecv:
 			tcp_dispatch_io_recv( packet );
@@ -923,8 +927,6 @@ void tcp_dispatch_io_event( packet_t *packet, NTSTATUS status )
 	--*/
 void tcp_shutdown_by_packet( packet_t * packet )
 {
-	ncb_t * ncb;
-
 	if (!packet) {
 		return;
 	}
@@ -945,14 +947,14 @@ void tcp_shutdown_by_packet( packet_t * packet )
 			// 3. 重新扔出一个accept请求
 			//
 		case kSyn:
-			mxx_call_ecr("accept link:%I64d, listen link:%I64d", packet->type_, packet->accepted_link, packet->link);
-
+			mxx_call_ecr("accept link:%I64d, listen link:%I64d", packet->accepted_link, packet->link);
+			/*
 			if (tcprefr(packet->link, &ncb) >= 0) {
-				tcp_syn( ncb );
+				tcp_accept(ncb);
 				objdefr(ncb->hld);
 			} else {
 				mxx_call_ecr("fail reference listen object link:%I64d", packet->link);
-			}
+			}*/
 
 			objclos(packet->accepted_link);
 			freepkt(packet);
@@ -1171,7 +1173,8 @@ PORTABLEIMPL(int) tcp_connect( HTCPLINK lnk, const char* r_ipstr, uint16_t port 
 PORTABLEIMPL(int) tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 {
 	ncb_t *ncb;
-	packet_t * packet = NULL;
+	packet_t *packet;
+	int retval;
 
 	if (!r_ipstr || 0 == port) {
 		return -EINVAL;
@@ -1183,8 +1186,9 @@ PORTABLEIMPL(int) tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 	}
 
 	do {
+		packet = NULL;
 		if (allocate_packet(ncb->hld, kProto_TCP, kConnect, 0, kNoAccess, &packet) < 0) {
-			break;
+			return -1;
 		}
 
 		if (inet_pton(AF_INET, r_ipstr, &packet->remote_addr.sin_addr) <= 0) {
@@ -1193,8 +1197,13 @@ PORTABLEIMPL(int) tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 		packet->remote_addr.sin_family = AF_INET;
 		packet->remote_addr.sin_port = htons(port);
 
-		if (asio_tcp_connect(packet) < 0){
-			break;
+		retval = asio_tcp_connect(packet);
+		if (IOR_SHUTDOWN == retval) {
+			tcp_shutdown_by_packet(packet);
+		} else if (IOR_CAN_FREE == retval) {
+			freepkt(packet);
+		} else {
+			;
 		}
 
 		objdefr(ncb->hld);
@@ -1202,7 +1211,9 @@ PORTABLEIMPL(int) tcp_connect2(HTCPLINK lnk, const char* r_ipstr, uint16_t port)
 
 	} while (FALSE);
 
-	freepkt(packet);
+	if (packet) {
+		freepkt(packet);
+	}
 	objdefr(ncb->hld);
 	return -1;
 }
@@ -1211,7 +1222,6 @@ PORTABLEIMPL(int) tcp_listen( HTCPLINK lnk, int block )
 {
 	ncb_t *ncb;
 	int retval;
-	int i;
 
 	if (tcprefr(lnk, &ncb) < 0 ) {
 		mxx_call_ecr("fail to reference link:%I64d", lnk);
@@ -1219,9 +1229,6 @@ PORTABLEIMPL(int) tcp_listen( HTCPLINK lnk, int block )
 	}
 
 	do {
-
-		retval = -1;
-
 		if (0 == block) {
 			block = TCP_LISTEN_BLOCK_COUNT;
 		}
@@ -1232,11 +1239,9 @@ PORTABLEIMPL(int) tcp_listen( HTCPLINK lnk, int block )
 			break;
 		}
 
-		i = 0;
-		do {
-			i++;
-			retval = tcp_syn( ncb );
-		} while ( ( retval >= 0 ) && ( i < block ) );
+		while ( block-- >= 0 && retval >= 0 ) {
+			retval = tcp_accept(ncb);
+		}
 
 	} while ( FALSE );
 
@@ -1304,7 +1309,6 @@ PORTABLEIMPL(int) tcp_write(HTCPLINK lnk, const void *origin, int cb, const nis_
 	packet_t *packet;
 	int total_packet_length;
 	int retval;
-	int n;
 
 	if (INVALID_HTCPLINK == lnk || cb <= 0 || cb > TCP_MAXIMUM_PACKET_SIZE || !origin) {
 		return -1;

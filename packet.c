@@ -30,12 +30,13 @@ int allocate_packet( objhld_t h, enum proto_type_t proto_type, enum pkt_type_t t
 #pragma warning(suppress: 6387)
 				p_buffer = os_lock_virtual_pages( NULL, cbSize );
 				if ( !p_buffer ) {
+					mxx_call_ecr("fail to invoke os_lock_virtual_pages with size:%d", cbSize);
 					break;
 				}
 			} else if ( page_style == kVirtualHeap ) {
 				p_buffer = ( char * ) malloc( cbSize );
 				if ( !p_buffer ) {
-					mxx_call_ecr("fail to allocate memory %d", cbSize);
+					mxx_call_ecr("fail to invoke malloc for size:%d", cbSize);
 					break;
 				}
 			} else {
@@ -89,7 +90,6 @@ void freepkt( packet_t * packet )
 				packet->grp_packets_cnt_ = 0;
 			} else {
 				if (packet->ori_buffer_) {
-					mxx_call_ecr("free buffer:%p", packet->ori_buffer_);
 					free(packet->ori_buffer_);
 					packet->ori_buffer_ = NULL;
 				}
@@ -108,7 +108,6 @@ void freepkt( packet_t * packet )
 	}
 
 	packet->irp_ = NULL;
-	mxx_call_ecr("free packet:%p", packet);
 	free( packet );
 }
 
@@ -122,37 +121,58 @@ int asio_tcp_accept( packet_t * packet )
 	LPFN_ACCEPTEX WSAAcceptEx = NULL;
 	uint32_t bytes_return = 0;
 	int retval;
+	enum page_phase_t iopp;
+	BOOL syscallret;
 
-	if (!packet) {
-		return -1;
-	}
+	assert(packet);
+
+	retval = IOR_SHUTDOWN;
 
 	ncb_listen = objrefr(packet->link);
 	if (!ncb_listen) {
-		return -1;
+		return retval;
 	}
 
-	status = (NTSTATUS)WSAIoctl(ncb_listen->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_ACCEPTEX, sizeof(GUID_ACCEPTEX),
-		&WSAAcceptEx, sizeof(WSAAcceptEx), &bytes_return, NULL, NULL);
-	if (!NT_SUCCESS(status)) {
-		mxx_call_ecr("syscall WSAIoctl for WSAID_ACCEPTEX failed,NTSTATUS=0x%08X,link:%I64d", status, ncb_listen->hld);
-		objdefr(ncb_listen->hld);
-		return -1;
-	}
+	do {
+		status = (NTSTATUS)WSAIoctl(ncb_listen->sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &GUID_ACCEPTEX, sizeof(GUID_ACCEPTEX),
+			&WSAAcceptEx, sizeof(WSAAcceptEx), &bytes_return, NULL, NULL);
+		if (!NT_SUCCESS(status)) {
+			mxx_call_ecr("syscall WSAIoctl for WSAID_ACCEPTEX failed,NTSTATUS=0x%08X,link:%I64d", status, ncb_listen->hld);
+			break;
+		}
 
-	retval = 0;
-	ncb_income = objrefr(packet->accepted_link);
-	if ( ncb_income ) {
-		if ( !WSAAcceptEx( ncb_listen->sockfd, ncb_income->sockfd, packet->irp_, 0,
-			sizeof( struct sockaddr_in ) + 16, sizeof( struct sockaddr_in ) + 16, &packet->size_for_translation_, &packet->overlapped_ ) ) {
-			if ( ERROR_IO_PENDING != WSAGetLastError() ) {
-				mxx_call_ecr("syscall WSAAcceptEx failed,error code=%u,link:%I64d", WSAGetLastError(), ncb_listen->hld);
-				retval = -1;
+		retval = 0;
+		ncb_income = objrefr(packet->accepted_link);
+		if (!ncb_income) {
+			retval = IOR_CAN_FREE;
+			break;
+		}
+
+		InterlockedExchange((volatile LONG *)&packet->iopp_, kPagePhase_InUse);
+		syscallret = WSAAcceptEx(ncb_listen->sockfd, ncb_income->sockfd, packet->irp_, 0,
+			sizeof(struct sockaddr_in) + 16, sizeof(struct sockaddr_in) + 16, &packet->size_for_translation_, &packet->overlapped_);
+		/* record the phase of this page packet in WSA procedure */
+		iopp = InterlockedIncrement((volatile LONG *)&packet->iopp_);
+		if (!syscallret) {
+			retval = IOR_SHUTDOWN;
+			if (ERROR_IO_PENDING == WSAGetLastError()) {
+				retval = 0;
+			} else {
+				mxx_call_ecr("syscall WSASend failed,error code=%u, link:%I64d", WSAGetLastError(), ncb_listen->hld);
 			}
 		}
-		objdefr( ncb_income->hld );
-	}
+		objdefr(ncb_income->hld);
+
+	} while (0);
+	
 	objdefr( ncb_listen->hld );
+
+	if (kPagePhase_CanbeFree == iopp) {
+		if (0 == retval) {
+			retval = IOR_CAN_FREE;
+		}
+	}
+
 	return retval;
 }
 
@@ -180,7 +200,7 @@ int asio_tcp_send( packet_t *packet )
 	iopp = InterlockedIncrement((volatile LONG *)&packet->iopp_);
 	/* check the syscall return status */
 	if ( retval == SOCKET_ERROR ) {
-		retval = IOR_SYSERR;
+		retval = IOR_SHUTDOWN;
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
 			retval = 0;
 		} else {
@@ -191,15 +211,11 @@ int asio_tcp_send( packet_t *packet )
 	objdefr( ncb->hld );
 
 	if (kPagePhase_CanbeFree == iopp) {
-		if (IOR_SYSERR == retval) {
+		if (packet->size_for_translation_ <= 0) {
+			mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
 			retval = IOR_SHUTDOWN;
 		} else {
-			if (packet->size_for_translation_ <= 0) {
-				mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
-				retval = IOR_SHUTDOWN;
-			} else {
-				retval = IOR_CAN_FREE;
-			}
+			retval = IOR_CAN_FREE;
 		}
 	}
 
@@ -230,7 +246,7 @@ int asio_tcp_recv( packet_t * packet )
 	iopp = InterlockedIncrement((volatile LONG *)&packet->iopp_);
 	/* check the syscall return status */
 	if ( retval == SOCKET_ERROR ) {
-		retval = IOR_SYSERR;
+		retval = IOR_SHUTDOWN;
 		if ( ERROR_IO_PENDING == WSAGetLastError() ) {
 			retval = 0;
 		} else {
@@ -241,15 +257,11 @@ int asio_tcp_recv( packet_t * packet )
 	objdefr( ncb->hld );
 
 	if (kPagePhase_CanbeFree == iopp) {
-		if (IOR_SYSERR == retval) {
+		if (packet->size_for_translation_ <= 0) {
+			mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
 			retval = IOR_SHUTDOWN;
 		} else {
-			if (packet->size_for_translation_ <= 0) {
-				mxx_call_ecr("the translated size equal to zero, link:%I64d", packet->link);
-				retval = IOR_SHUTDOWN;
-			} else {
-				retval = IOR_CAN_FREE;
-			}
+			retval = IOR_CAN_FREE;
 		}
 	}
 
@@ -292,7 +304,7 @@ int asio_tcp_connect(packet_t *packet)
 		/* record the phase of this page packet in WSA procedure */
 		iopp = InterlockedIncrement((volatile LONG *)&packet->iopp_);
 		if (!syscallret) {
-			retval = IOR_SYSERR;
+			retval = IOR_SHUTDOWN;
 			if (ERROR_IO_PENDING == WSAGetLastError()) {
 				retval = 0;
 			} else {
@@ -306,7 +318,9 @@ int asio_tcp_connect(packet_t *packet)
 	objdefr(ncb->hld);
 
 	if (kPagePhase_CanbeFree == iopp) {
-		retval = (IOR_SYSERR == retval) ? IOR_SHUTDOWN : IOR_CAN_FREE;
+		if (0 == retval) {
+			retval = IOR_CAN_FREE;
+		}
 	}
 
 	return retval;
