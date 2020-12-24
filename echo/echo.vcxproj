@@ -103,7 +103,9 @@
     <ClCompile Include="..\tcp.c" />
     <ClCompile Include="..\udp.c" />
     <ClCompile Include="args.c" />
+    <ClCompile Include="client.c" />
     <ClCompile Include="echo.c" />
+    <ClCompile Include="server.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\libnsp\icom\avltree.h" />

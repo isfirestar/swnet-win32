@@ -11,9 +11,7 @@ extern void display_usage();
 extern int check_args(int argc, char **argv);
 
 extern int gettype(); /* application run level in client or server */
-extern const char *gethost(); /* get the host IP address which service on or client connect to */
-extern uint16_t getport();
-extern int getloopstatus(int *threads);
-extern int getindependence();
+extern void getservercontext(int *echo, int *mute, uint16_t *port);
+extern void getclientcontext(char **host, uint16_t *port, int *echo, int *interval, int *threads, int *length);
 
 #endif
