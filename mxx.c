@@ -120,17 +120,10 @@ PORTABLEIMPL(int) nis_ctxsize( HLNK lnk )
 
 PORTABLEIMPL(int) nis_getver( swnet_version_t  *version )
 {
-	if (!version) {
-		return -1;
-	}
-
-	version->major_ = 9;
-	version->minor_ = 7;
-	version->revision_ = 6;
-	return 0;
+	return -1;
 }
 
-PORTABLEIMPL(int) nis_gethost( const char *name, uint32_t *ipv4 ) 
+PORTABLEIMPL(int) nis_gethost( const char *name, uint32_t *ipv4 )
 {
 
 	struct hostent *remote;
@@ -200,7 +193,7 @@ PORTABLEIMPL(nis_event_callback_t) nis_checr(const nis_event_callback_t ecr)
 	return InterlockedExchangePointer( ( volatile PVOID * )&current_ecr, ecr );
 }
 
-void nis_call_ecr( const char *fmt, ... ) 
+void nis_call_ecr( const char *fmt, ... )
 {
 	nis_event_callback_t ecr = NULL, old;
 	va_list ap;
@@ -259,7 +252,7 @@ PORTABLEIMPL(int) nis_getmask(HTCPLINK lnk, int *mask)
 	return 0;
 }
 
-PORTABLEIMPL(int) nis_getifmisc(ifmisc_t *ifv, int *cbifv) 
+PORTABLEIMPL(int) nis_getifmisc(ifmisc_t *ifv, int *cbifv)
 {
 	ULONG dwRetVal, outBufLen;
 	PIP_ADAPTER_INFO pCurrAddresses, pAddresses;
