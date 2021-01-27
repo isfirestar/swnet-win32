@@ -90,6 +90,12 @@
     <ClCompile Include="..\..\libnsp\com\posix_wait.c">
       <Filter>Resource Files\com</Filter>
     </ClCompile>
+    <ClCompile Include="client.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="server.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="args.h">
