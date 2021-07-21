@@ -74,13 +74,13 @@ static DWORD WINAPI __iorun(LPVOID p)
 	return 0L;
 }
 
-static void *__epoll_proc(void *p) 
+static void *__epoll_proc(void *p)
 {
 	__iorun(p);
 	return NULL;
 }
 
-int __ioinit() 
+int __ioinit()
 {
 	int i;
 
@@ -112,7 +112,7 @@ int __ioinit()
 
 posix__atomic_initial_declare_variable(__inited__);
 
-int ioinit() 
+int ioinit()
 {
 	if (posix__atomic_initial_try(&__inited__)) {
 		if (__ioinit() < 0) {
@@ -154,18 +154,32 @@ int ioatth(void *ncbptr)
 void ioclose(void *ncbptr)
 {
 	ncb_t *ncb;
+	SOCKET tmpfd;
 
 	ncb = (ncb_t *)ncbptr;
 	if (ncb) {
-		if (INVALID_SOCKET != ncb->sockfd) {
-			shutdown(ncb->sockfd, SD_BOTH);
-			closesocket(ncb->sockfd);
-			ncb->sockfd = INVALID_SOCKET;
+		tmpfd = ( (sizeof(SOCKET) == sizeof(__int64)) ? InterlockedExchange64((volatile LONG64 *)&ncb->sockfd, INVALID_SOCKET) :
+			InterlockedExchange((volatile LONG *)&ncb->sockfd, INVALID_SOCKET) );
+		if (INVALID_SOCKET != tmpfd) {
+			shutdown(tmpfd, SD_BOTH);
+
+			/*
+			The closesocket function closes a socket.
+			Use it to release the socket descriptor passed in the @s parameter.
+			Note that the socket descriptor passed in the s parameter may immediately be reused by the system as soon as closesocket function is issued.
+			As a result, it is not reliable to expect further references to the socket descriptor passed in the s parameter to fail with the error WSAENOTSOCK.
+			A Winsock client must never issue closesocket on s concurrently with another Winsock function call.
+
+			Any pending overlapped send and receive operations ( WSASend/ WSASendTo/ WSARecv/ WSARecvFrom with an overlapped socket)
+			issued by any thread in this process are also canceled.
+			Any event, completion routine, or completion port action specified for these overlapped operations is performed.
+			The pending overlapped operations fail with the error status WSA_OPERATION_ABORTED. */
+			closesocket(tmpfd);
 		}
 	}
 }
 
-void iouninit() 
+void iouninit()
 {
 	int i;
 	struct epoll_object *epos;

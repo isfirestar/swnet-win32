@@ -106,6 +106,7 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 {
 	packet_t *next_packet;
 	int retval;
+	static const int MAX_TCP_KERNEL_PENDING = 1;
 
 	if (!ncb) {
 		return -1;
@@ -135,7 +136,7 @@ static int tcp_try_write( ncb_t * ncb, packet_t *packet )
 
 		/* another asynchronous operations may be in progress,
 			double check to estimate whether the opportunity of send is right */
-		while (InterlockedIncrement((volatile LONG *)&ncb->tcp_write_pending_) > 1) {
+		while ( InterlockedIncrement((volatile LONG *)&ncb->tcp_write_pending_) > MAX_TCP_KERNEL_PENDING ) {
 			if (InterlockedDecrement((volatile LONG *)&ncb->tcp_write_pending_) > 0) {
 				break;
 			}

@@ -125,7 +125,6 @@ PORTABLEIMPL(int) nis_getver( swnet_version_t  *version )
 
 PORTABLEIMPL(int) nis_gethost( const char *name, uint32_t *ipv4 )
 {
-
 	struct hostent *remote;
     struct in_addr addr;
 	/*struct addrinfo hits, *pres;*/
